@@ -4,7 +4,7 @@ import pytest
 from dataengineeringutils3 import s3
 from helpers import patched_get_filepaths_from_s3_folder, patched_get_s3_file_head
 from mojap_metadata import Metadata
-from s3_data_packer.S3OutputStore import S3OutputStore
+from s3_data_packer import S3OutputStore
 from s3_data_packer.S3DataPacker import S3DataPacker
 from shutil import copyfile, rmtree
 from tempfile import mkdtemp
