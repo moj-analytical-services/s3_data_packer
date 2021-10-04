@@ -7,12 +7,12 @@ import numpy as np
 
 from arrow_pd_parser import reader, writer
 from arrow_pd_parser.caster import cast_pandas_table_to_schema
-from .constants import default_file_limit_gigabytes
-from .helpers import get_file_format
+from s3_data_packer.constants import default_file_limit_gigabytes
+from s3_data_packer.helpers import get_file_format
 from mojap_metadata.metadata.metadata import Metadata
 from pandas import DataFrame, concat
-from .S3OutputStore import S3OutputStore
-from .S3TableStore import S3TableStore
+from s3_data_packer.s3_output_store import S3OutputStore
+from s3_data_packer.s3_table_store import S3TableStore
 from typing import List, Tuple, Union
 
 

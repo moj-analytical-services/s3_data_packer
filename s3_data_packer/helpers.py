@@ -1,5 +1,3 @@
-import os
-
 from collections import Counter
 from dataengineeringutils3 import s3
 
