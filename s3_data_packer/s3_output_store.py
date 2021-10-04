@@ -3,8 +3,8 @@ import boto3
 
 from typing import List, Union
 from dataengineeringutils3.s3 import s3_path_to_bucket_key
-from .S3TableStore import S3TableStore
-from .constants import default_file_limit_gigabytes
+from s3_data_packer.s3_table_store import S3TableStore
+from s3_data_packer.constants import default_file_limit_gigabytes
 
 
 def _get_s3_file_head(f: str):

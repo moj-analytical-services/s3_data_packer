@@ -2,7 +2,11 @@
 name = "s3_data_packer"
 version = "0.0.1"
 description = ""
-authors = ["s-ducks <stephen.bias@digital.justice.gov.uk>"]
+authors = [
+    "s-ducks <stephen.bias@digital.justice.gov.uk>",
+    "dataengineering <dataengineering@digital.justice.gov.uk>",
+    "danjiv <danjiv.ramkhalawon@digital.justice.gov.uk>"
+]
 license = "MIT"
 
 [tool.poetry.dependencies]
