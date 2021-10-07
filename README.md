@@ -99,7 +99,7 @@ Files are filled up in order. The data from the original `table_0.snappy.parquet
 still in that file, it has now just been concatenated with other data.
 
 `S3DataPacker` is format agnostic, although it defaults to outputting as 
-`snappy.parquet`, it can be used to chunk csv to jsonl or parquet to csv, under the 
+`snappy.parquet`, it can be used to chunk csv to jsonl, parquet to csv, or even csv to csv, basically any(jsonl, csv, parquet) to any(jsonl, csv, parquet) under the 
 same sequential filling of data shown
 
 ### Why?
