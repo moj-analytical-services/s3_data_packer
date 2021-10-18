@@ -5,6 +5,81 @@ from pandas import concat
 import arrow_pd_parser.caster as apc
 
 
+def test_get_files_from_table_log(pp, **kwargs):
+
+    if kwargs["inp_s"] == 8:
+        assert pp.input_store.get_files_from_table_log() == []
+    else:
+        if kwargs["inp_s"] > 4:
+            pp_table_log = list(pp.input_store.get_files_from_table_log())
+            test_table_log = [ttl.replace("land/all_types/", "")
+                              for ttl in list(kwargs["ifm"].values())]
+        else:
+            pp_table_log = list(pp.input_store.get_files_from_table_log(full_path=True))
+            test_table_log = [kwargs["tmp_dir"] + "/" + val
+                              for val in list(kwargs["ifm"].values())]
+
+        pp_table_log.sort()
+        test_table_log.sort()
+
+        assert pp_table_log == test_table_log
+
+
+def test_get_table_basepath(pp, **kwargs):
+
+    assert pp.input_store._get_table_basepath() == (kwargs["tmp_dir"]
+                                                    + "/land/all_types/")
+
+
+def test_get_latest_file_by_suffix(pp, **kwargs):
+
+    if kwargs["ofm"] == {}:
+        latest_file = pp.output_store._get_latest_file_by_suffix(
+            pp.output_store.get_files_from_table_log())
+        assert latest_file is None
+    else:
+        latest_file_pp = pp.output_store._get_latest_file_by_suffix(
+            pp.output_store.get_files_from_table_log())
+
+        latest_file_test = [file.replace("db/all_types/", "")
+                            for file in list(kwargs["ofm"].values())]
+        latest_file_test.sort()
+        latest_file_test = latest_file_test[-1]
+        assert latest_file_pp == latest_file_test
+
+
+def test_get_filenum_from_filename(pp, **kwargs):
+    if kwargs["inp_s"] == 8:
+        assert pp.output_store._get_filenum_from_filename(None) == 0
+    else:
+        file = pp.output_store._get_latest_file_by_suffix(
+            pp.output_store.get_files_from_table_log())
+        if kwargs["inp_s"] == 7:
+            assert pp.output_store._get_filenum_from_filename(file) == 3
+        else:
+            assert pp.output_store._get_filenum_from_filename(file) == 0
+
+
+def test_set_latest_filenum(pp, **kwargs):
+    if kwargs["inp_s"] == 8:
+        assert pp.output_store.filenum == 0
+    else:
+        if kwargs["inp_s"] == 7:
+            assert pp.output_store.filenum == 3
+        else:
+            assert pp.output_store.filenum == 0
+
+
+def test_get_filename(pp, **kwargs):
+    if kwargs["inp_s"] == 8:
+        assert pp.output_store._get_filename() == "all_types_0.snappy.parquet"
+    else:
+        if kwargs["inp_s"] == 7:
+            assert pp.output_store._get_filename() == "all_types_3.snappy.parquet"
+        else:
+            pp.output_store._get_filename() == "all_types_0.snappy.parquet"
+
+
 def test_get_meta(pp, **kwargs):
 
     if kwargs["inp_s"] > 4:

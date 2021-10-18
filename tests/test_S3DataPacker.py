@@ -23,7 +23,13 @@ import DataPacker.DataPacker_individual_tests as individual_tests
         "test_get_chunk_increments",
         "test_get_meta",
         "test_get_latest_file",
-        "test_read_file"
+        "test_read_file",
+        "test_get_files_from_table_log",
+        "test_get_table_basepath",
+        "test_get_latest_file_by_suffix",
+        "test_get_filenum_from_filename",
+        "test_set_latest_filenum",
+        "test_get_filename"
     ]
 )
 @pytest.mark.parametrize(
@@ -359,10 +365,12 @@ def test_S3DataPacker(
     f = getattr(individual_tests, function_name)
     # invoke
     # for f in function_list:
-    f(pp, ifm=input_file_map, fsod=file_size_on_disk,
+    f(pp, ifm=input_file_map, ofm=output_file_map,
+      fsod=file_size_on_disk,
       gci=get_chunk_increments,
       inp_s=input_scenario, lf=latest_file,
       sad=should_append_data, dta=data_to_add,
-      get_meta=get_meta, meta=meta)
+      get_meta=get_meta, meta=meta,
+      tmp_dir=tmp_dir)
 
     rmtree(tmp_dir)
