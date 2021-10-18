@@ -140,3 +140,4 @@ dmypy.json
 # data
 *.csv
 !all_types.csv
+!all_types2.csv
