@@ -6,7 +6,10 @@ import arrow_pd_parser.caster as apc
 
 
 def test_get_files_from_table_log(pp, **kwargs):
-
+    # input_scenario 8 is our fail scenario, so
+    # shouldn't be any input files to speak of.
+    # testing the full_path option in the function
+    # for input_scenarios [1, 4]
     if kwargs["inp_s"] == 8:
         assert pp.input_store.get_files_from_table_log() == []
     else:
@@ -26,13 +29,17 @@ def test_get_files_from_table_log(pp, **kwargs):
 
 
 def test_get_table_basepath(pp, **kwargs):
-
+    # the function can't really fail, just verifying that
+    # output looks sensible
     assert pp.input_store._get_table_basepath() == (kwargs["tmp_dir"]
                                                     + "/land/all_types/")
 
 
 def test_get_latest_file_by_suffix(pp, **kwargs):
-
+    # if there is no file in the output file map
+    # verify that we don't find a latest file
+    # otherwise, ensure latest file has the largest
+    # numerical suffix
     if kwargs["ofm"] == {}:
         latest_file = pp.output_store._get_latest_file_by_suffix(
             pp.output_store.get_files_from_table_log())
@@ -49,6 +56,10 @@ def test_get_latest_file_by_suffix(pp, **kwargs):
 
 
 def test_get_filenum_from_filename(pp, **kwargs):
+    # if there are no files in output_file_map
+    # test that function defaults to filenum of 0
+    # Otherwise, test that function correctly picks up
+    # existing filenum
     if kwargs["inp_s"] == 8:
         assert pp.output_store._get_filenum_from_filename(None) == 0
     else:
@@ -61,6 +72,9 @@ def test_get_filenum_from_filename(pp, **kwargs):
 
 
 def test_set_latest_filenum(pp, **kwargs):
+    # checks the attribute set using 
+    # ._get_filenum_from_filename looks
+    # correct
     if kwargs["inp_s"] == 8:
         assert pp.output_store.filenum == 0
     else:
@@ -71,6 +85,7 @@ def test_set_latest_filenum(pp, **kwargs):
 
 
 def test_get_filename(pp, **kwargs):
+    # filename should be tablename_filenum_extension
     if kwargs["inp_s"] == 8:
         assert pp.output_store._get_filename() == "all_types_0.snappy.parquet"
     else:
@@ -81,7 +96,8 @@ def test_get_filename(pp, **kwargs):
 
 
 def test_get_meta(pp, **kwargs):
-
+    # test to see if a metadata object gets returned
+    # when extension is not set to parquet/snappy.parquet
     if kwargs["inp_s"] > 4:
         assert pp._get_meta("snappy.parquet") is None
     else:
@@ -90,7 +106,9 @@ def test_get_meta(pp, **kwargs):
 
 
 def test_set_file_size_on_disk(pp, **kwargs):
-
+    # More of a sanity check that the file size matches
+    # when there are no input files to append expecting
+    # a ValueError
     if kwargs["inp_s"] == 8:
         with pytest.raises(ValueError):
             pp._set_file_size_on_disk(pp._append_files())
@@ -102,6 +120,9 @@ def test_set_file_size_on_disk(pp, **kwargs):
 
 
 def test_get_chunk_increments(pp, **kwargs):
+    # Another sanity check for chunk increments
+    # Again, when there are no input files to append
+    # expecting a ValueError
     if kwargs["inp_s"] == 8:
         with pytest.raises(ValueError):
             pp._set_file_size_on_disk(pp._append_files())
@@ -112,6 +133,8 @@ def test_get_chunk_increments(pp, **kwargs):
 
 
 def test_get_input_files(pp, **kwargs):
+    # Testing input files by returning and appending them all
+    # If no input files, not expecting to return anything
     if kwargs["inp_s"] == 8:
         assert pp._get_input_files() is None
     else:
@@ -124,6 +147,8 @@ def test_get_input_files(pp, **kwargs):
 
 
 def test_append_files(pp, **kwargs):
+    # Again, if there are no files to append
+    # expecting a ValueError
     if kwargs["inp_s"] == 8:
         with pytest.raises(ValueError):
             appended_files_pp = pp._append_files()
@@ -139,6 +164,11 @@ def test_append_files(pp, **kwargs):
 
 
 def test_get_latest_file(pp, **kwargs):
+    # Expecting a TypeError if we try and
+    # read in a file which doesn't exist,
+    # given no outputs exist
+    # Otherwise, if there are current output files,
+    # test they match expected
     if kwargs["inp_s"] == 8:
         with pytest.raises(TypeError):
             pp._get_latest_file()
@@ -152,6 +182,10 @@ def test_get_latest_file(pp, **kwargs):
 
 
 def test_read_file(pp, **kwargs):
+    # Expecting a TypeError if function tries to
+    # read a file which doesn't exist
+    # Otherwise, testing whether dfs match when casting
+    # to a meta data schema and when not casting
     if kwargs["inp_s"] == 8:
         with pytest.raises(TypeError):
             pp._read_file()
@@ -171,6 +205,9 @@ def test_read_file(pp, **kwargs):
 
 
 def test_should_append_data(pp, **kwargs):
+    # default is false, can't fail past false
+    # test to see whether new data should be appended with
+    # existing outputs
     if kwargs["inp_s"] == 8:
         assert not pp.output_store._should_append_data()
     else:
@@ -178,6 +215,8 @@ def test_should_append_data(pp, **kwargs):
 
 
 def test_data_to_add(pp, **kwargs):
+    # again, default is false so can't fail past it
+    # test to see whether there's new data to pack
     if kwargs["inp_s"] == 8:
         assert not pp._data_to_add()
     else:
