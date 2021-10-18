@@ -21,7 +21,9 @@ import DataPacker.DataPacker_individual_tests as individual_tests
         "test_should_append_data",
         "test_data_to_add",
         "test_get_chunk_increments",
-        "test_get_meta"
+        "test_get_meta",
+        "test_get_latest_file",
+        "test_read_file"
     ]
 )
 @pytest.mark.parametrize(
@@ -48,7 +50,8 @@ import DataPacker.DataPacker_individual_tests as individual_tests
             },
             # output_file_map: output file map, for adding files to mock s3 output
             {},
-            # expected_output_files: output files expected in the mocked s3 and it's path
+            # expected_output_files: output files expected in the mocked s3 and
+            # it's path
             [
                 "db/all_types/all_types_0.snappy.parquet"
             ],
@@ -78,13 +81,14 @@ import DataPacker.DataPacker_individual_tests as individual_tests
             },
             # output_file_map: output file map, for adding files to mock s3 output
             {},
-            # expected_output_files: output files expected in the mocked s3 and it's path
+            # expected_output_files: output files expected in the mocked s3 and it's
+            #  path
             [
                 "db/all_types/all_types_0.snappy.parquet",
                 "db/all_types/all_types_1.snappy.parquet"
             ],
             # file_size_limit_in_gb: output parquet file size limit
-            5*10**-6,
+            5 * 10**-6,
             # file size on disk
             0.000006208,
             # chunk size increments
@@ -111,7 +115,8 @@ import DataPacker.DataPacker_individual_tests as individual_tests
             },
             # output_file_map: output file map, for adding files to mock s3 output
             {},
-            # expected_output_files: output files expected in the mocked s3 and it's path
+            # expected_output_files: output files expected in the mocked s3 and
+            #  it's path
             [
                 "db/all_types/all_types_0.snappy.parquet"
             ],
@@ -132,7 +137,7 @@ import DataPacker.DataPacker_individual_tests as individual_tests
             # meta data for casting
             True
         ),
-        # input scenario 4: multiple input files, multiple output files. This is 
+        # input scenario 4: multiple input files, multiple output files. This is
         # expected to have two outputs, even though there are more inputs due to snappy
         # compression in parquet working on repeated data see
         # https://dsdmoj.atlassian.net/browse/CCDE-146 for demonstration of the
@@ -147,13 +152,14 @@ import DataPacker.DataPacker_individual_tests as individual_tests
             },
             # output_file_map: output file map, for adding files to mock s3 output
             {},
-            # expected_output_files: output files expected in the mocked s3 and it's path
+            # expected_output_files: output files expected in the mocked s3 and
+            #  it's path
             [
                 "db/all_types/all_types_0.snappy.parquet",
                 "db/all_types/all_types_1.snappy.parquet",
             ],
             # file_size_limit_in_gb: output parquet file size limit
-            5*10**-6,
+            5 * 10**-6,
             # file size on disk
             0.000006883,
             # file chunk increments
@@ -181,13 +187,14 @@ import DataPacker.DataPacker_individual_tests as individual_tests
                 "tests/data/all_types.snappy.parquet":
                 "db/all_types/all_types_0.snappy.parquet"
             },
-            # expected_output_files: output files expected in the mocked s3 and it's path
+            # expected_output_files: output files expected in the mocked s3
+            #  and it's path
             [
                 "db/all_types/all_types_0.snappy.parquet",
                 "db/all_types/all_types_1.snappy.parquet",
             ],
             # file_size_limit_in_gb: output parquet file size limit
-            5*10**-6,
+            5 * 10**-6,
             # file size on disk
             0.000006883,
             # chunk increments
@@ -215,7 +222,8 @@ import DataPacker.DataPacker_individual_tests as individual_tests
                 "tests/data/all_types.snappy.parquet":
                 "db/all_types/all_types_0.snappy.parquet"
             },
-            # expected_output_files: output files expected in the mocked s3 and it's path
+            # expected_output_files: output files expected in the mocked s3
+            #  and it's path
             [
                 "db/all_types/all_types_0.snappy.parquet"
             ],
@@ -236,7 +244,8 @@ import DataPacker.DataPacker_individual_tests as individual_tests
             # meta data for casting
             None
         ),
-        # input scenario 7: 1 input file, 2 output files (existing files, but under limit)
+        # input scenario 7: 1 input file, 2 output files (existing files,
+        #  but under limit)
         (
             # input_file_map: input file map, for adding files to the mock land
             {
@@ -250,7 +259,8 @@ import DataPacker.DataPacker_individual_tests as individual_tests
                 "tests/data/all_types3.snappy.parquet":
                 "db/all_types/all_types_3.snappy.parquet",
             },
-            # expected_output_files: output files expected in the mocked s3 and it's path
+            # expected_output_files: output files expected in the mocked s3
+            #  and it's path
             [
                 "db/all_types/all_types_3.snappy.parquet"
             ],
@@ -268,6 +278,33 @@ import DataPacker.DataPacker_individual_tests as individual_tests
             True,
             # Is there input data to pack?
             True,
+            # meta data for casting
+            None
+        ),
+        # input scenario 8: No input files, no output files.
+        # checking everything fails as expected
+        (
+            # input_file_map: input file map, for adding files to the mock land
+            {},
+            # output_file_map: output file map, for adding files to mock s3 output
+            {},
+            # expected_output_files: output files expected in the mocked s3
+            #  and it's path
+            [],
+            # file_size_limit_in_gb: output parquet file size limit
+            1,
+            # file size on disk
+            None,
+            # increment chunk size
+            None,
+            # Input scenario
+            8,
+            # existing output file folder index
+            8,
+            # Should we append to existing output file
+            False,
+            # Is there input data to pack?
+            False,
             # meta data for casting
             None
         )
@@ -326,6 +363,6 @@ def test_S3DataPacker(
       gci=get_chunk_increments,
       inp_s=input_scenario, lf=latest_file,
       sad=should_append_data, dta=data_to_add,
-      get_meta=get_meta)
+      get_meta=get_meta, meta=meta)
 
     rmtree(tmp_dir)

@@ -26,13 +26,13 @@ class S3DataPacker:
         output_file_ext: str = "snappy.parquet",
         output_suffix: str = None,
         input_file_ext: str = None,
-        cast_parquet = False,
+        cast_parquet=False,
         file_limit_gigabytes: int = default_file_limit_gigabytes,
     ):
 
         # set the blank table_name property. Has to be the _ one as it depends on itself
         self._table_name = None
-        
+
         self.cast_parquet = cast_parquet
 
         # build the input store
@@ -78,7 +78,7 @@ class S3DataPacker:
             self.metadata = metadata
         else:
             raise TypeError(f"metadata is specified as unknown type: {type(metadata)}")
-        
+
         if self.metadata is not None:
             self.metadata.set_col_type_category_from_types()
 
@@ -90,7 +90,7 @@ class S3DataPacker:
     def _set_file_size_on_disk(self, df: DataFrame):
         # write the data and get it's size on disk
         with tempfile.NamedTemporaryFile(
-            suffix= "." + self.output_store.table_extension
+            suffix="." + self.output_store.table_extension
         ) as t:
             self.table_nrows = df.shape[0]
             writer.write(df, t.name)
