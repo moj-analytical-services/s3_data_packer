@@ -97,7 +97,7 @@ class S3DataPacker:
             self.file_size_on_disk = os.path.getsize(t.name) / (10 ** 9)
 
     def _get_chunk_increments(self) -> Tuple[List[int], List[int]]:
-        increment_size = int(
+        increment_size = max(int(
             np.floor(
                 (
                     self.output_store.parquet_file_limit_gigabytes
@@ -105,8 +105,9 @@ class S3DataPacker:
                 )
                 * self.table_nrows
             )
-        )
-        increment_start = np.arange(1, self.table_nrows, increment_size).tolist()
+        ), 1)
+        increment_start = np.arange(1, max(self.table_nrows, 2),
+                                    increment_size).tolist()
         increment_end = np.arange(
             increment_size, self.table_nrows, increment_size
         ).tolist()

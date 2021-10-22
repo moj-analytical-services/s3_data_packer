@@ -142,3 +142,5 @@ dmypy.json
 !all_types.csv
 !all_types2.csv
 !all_types3.csv
+!all_types_one_line.csv
+!all_types_x12.csv
