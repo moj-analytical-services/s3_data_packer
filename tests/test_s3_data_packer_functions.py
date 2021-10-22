@@ -486,7 +486,9 @@ def test_get_files_from_table_log(monkeypatch, input_file_map, output_file_map,
     else:
         test_files = [val.replace("land/all_types/", "")
                       for val in list(input_file_map.values())]
+        test_files.sort()
         pp_files = list(pp.input_store.get_files_from_table_log())
+        pp_files.sort()
 
         assert test_files == pp_files
 
