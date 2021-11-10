@@ -31,8 +31,7 @@ def setup_packer(
 
 
 def setup_output_store(
-    tmp, file_map: dict = None, 
-    file_limit_gigabytes: int = 1, table_suffix: str = None
+    tmp, file_map: dict = None, file_limit_gigabytes: int = 1, table_suffix: str = None
 ):
 
     basepath = "db/"
@@ -45,8 +44,10 @@ def setup_output_store(
         write_file_map(tmp, file_map)
     # setup S3OutputStore
     output_store = s3_output_store.S3OutputStore(
-        basepath, table_name="all_types",
-        file_limit_gigabytes=file_limit_gigabytes, table_suffix=table_suffix
+        basepath,
+        table_name="all_types",
+        file_limit_gigabytes=file_limit_gigabytes,
+        table_suffix=table_suffix,
     )
 
     return output_store
@@ -54,14 +55,14 @@ def setup_output_store(
 
 def write_file_map(base_dir: str, file_map: dict):
     for source_file, out_files in file_map.items():
-            for out_file in out_files:
-                dst = os.path.join(base_dir, out_file)
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                writer.write(reader.read(source_file), dst)
+        for out_file in out_files:
+            dst = os.path.join(base_dir, out_file)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            writer.write(reader.read(source_file), dst)
 
 
 def data_maker(
-    num_lines: int, source_file: str = "tests/data/all_types.csv", metadata = None
+    num_lines: int, source_file: str = "tests/data/all_types.csv", metadata=None
 ) -> DataFrame:
     # if metadata, get it!
     metadata = Metadata.from_json(metadata) if metadata else metadata
@@ -69,9 +70,9 @@ def data_maker(
     source_df = reader.read(source_file, metadata=metadata)
     # how many of these dfs do we need?
     dfs_needed = int(num_lines / len(source_df))
-    extra_lines = abs(
-        (len(source_df) * dfs_needed) % num_lines
-    ) if dfs_needed else num_lines
+    extra_lines = (
+        abs((len(source_df) * dfs_needed) % num_lines) if dfs_needed else num_lines
+    )
     # get the correct number of dfs:
     dfs = [source_df for _ in range(dfs_needed)]
     # get any extra lines to cat:

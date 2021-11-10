@@ -37,7 +37,7 @@ class S3OutputStore(S3TableStore):
 
     def _get_filenum_from_filename(self, f: Union[str, None]) -> int:
         f = "" if not f else f
-        if re.search("_[0-9]+.", f): 
+        if re.search("_[0-9]+.", f):
             return int(
                 os.path.splitext(os.path.basename(f))[0].split(".")[0].split("_")[-1]
             )
@@ -87,7 +87,7 @@ class S3OutputStore(S3TableStore):
             if attr is None:
                 reset = False
         if reset:
-            self._init_table_log() # NOT WORKING HERE
+            self._init_table_log()  # NOT WORKING HERE
             file_list = self.get_files_from_table_log(full_path=True)
             self.latest_file = self._get_latest_file_by_suffix(file_list)
             self._set_latest_filenum()

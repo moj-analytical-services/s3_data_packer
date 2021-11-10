@@ -5,10 +5,12 @@ from collections import Counter
 from dataengineeringutils3 import s3
 from glob import glob
 
+
 def _get_s3_file_head(f: str):
     s3_client = boto3.client("s3")
     bk, ky = s3.s3_path_to_bucket_key(f)
     return s3_client.head_object(Bucket=bk, Key=ky)
+
 
 def _get_file_size(f: str):
     if f.startswith("s3://"):

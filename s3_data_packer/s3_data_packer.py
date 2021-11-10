@@ -105,10 +105,7 @@ class S3DataPacker:
         increment_size = max(
             int(
                 np.floor(
-                    (
-                        self.output_store.file_limit_gigabytes
-                        / self.file_size_on_disk
-                    )
+                    (self.output_store.file_limit_gigabytes / self.file_size_on_disk)
                     * self.table_nrows
                 )
             ),
@@ -135,7 +132,7 @@ class S3DataPacker:
     def _append_files(self) -> DataFrame:
         # concat all new and the most recent file
         raw_tables = self._get_input_files()
-        if self.output_store._should_append_data(): # ISSUE HERE
+        if self.output_store._should_append_data():  # ISSUE HERE
             existing_df = self._get_latest_file()
             total_df = concat([existing_df, *raw_tables])
         else:
