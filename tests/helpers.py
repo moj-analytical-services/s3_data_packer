@@ -3,7 +3,6 @@ import os
 from arrow_pd_parser import reader, writer
 from mojap_metadata import Metadata
 from pandas import concat, DataFrame
-from pandas.core.frame import DataFrame
 from s3_data_packer import s3_output_store
 from s3_data_packer.s3_data_packer import S3DataPacker
 

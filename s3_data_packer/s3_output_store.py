@@ -56,7 +56,6 @@ class S3OutputStore(S3TableStore):
         # step 2: get the detail about the file, if there is one
         append = False
         if self.latest_file:
-            # resp = _get_s3_file_head(self.latest_file)
             file_size_bytes = _get_file_size(self.latest_file)
 
             # step 3: if over the limit, lets start a new file! (yay!)
@@ -87,7 +86,7 @@ class S3OutputStore(S3TableStore):
             if attr is None:
                 reset = False
         if reset:
-            self._init_table_log()  # NOT WORKING HERE
+            self._init_table_log()
             file_list = self.get_files_from_table_log(full_path=True)
             self.latest_file = self._get_latest_file_by_suffix(file_list)
             self._set_latest_filenum()
