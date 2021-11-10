@@ -1,1154 +1,255 @@
-from arrow_pd_parser import reader
+import os
 import pytest
+import tempfile
+
+import pandas as pd
+
+from arrow_pd_parser import writer, reader
 from pandas.testing import assert_frame_equal
-from pandas import concat
 from mojap_metadata.metadata.metadata import Metadata
 from arrow_pd_parser.caster import cast_pandas_table_to_schema
-from helpers import setup_packer
+from helpers import setup_packer, data_maker
 
 
 @pytest.mark.parametrize(
     """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        )
-    ]
-)
-def test_get_meta(monkeypatch, input_file_map, output_file_map,
-                  file_size_limit_in_gb, input_scenario):
-    # test to see if a metadata object gets returned
-    # when extension is not set to parquet/snappy.parquet
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario == 1:
-        assert pp._get_meta("snappy.parquet") is None
-    else:
-        assert str(type(pp._get_meta("csv"))) == ("<class 'mojap_metadata"
-                                                  ".metadata.metadata.Metadata'>")
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        ),
-        (   # input scenario 3: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
-        )
-    ]
-)
-def test_get_filename(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb, input_scenario):
-
-    # filename should be tablename_filenum_extension
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario in [1, 3]:
-        assert pp.output_store._get_filename() == "all_types_0.snappy.parquet"
-    else:
-        assert pp.output_store._get_filename() == "all_types_4.snappy.parquet"
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        ),
-        (   # input scenario 3: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
-        )
-    ]
-)
-def test_get_filenum_from_filename(monkeypatch, input_file_map, output_file_map,
-                                   file_size_limit_in_gb, input_scenario):
-
-    # if there are no files in output_file_map
-    # test that function defaults to filenum of 0
-    # Otherwise, test that function correctly picks up
-    # existing filenum
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario in [1, 3]:
-        assert pp.output_store._get_filenum_from_filename(None) == 0
-    else:
-        file = pp.output_store._get_latest_file_by_suffix(
-            pp.output_store.get_files_from_table_log()
-        )
-        assert pp.output_store._get_filenum_from_filename(file) == 4
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        ),
-        (   # input scenario 3: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
-        )
-    ]
-)
-def test_set_latest_filenum(monkeypatch, input_file_map, output_file_map,
-                            file_size_limit_in_gb, input_scenario):
-    # checks the attribute set using
-    # ._get_filenum_from_filename looks
-    # correct
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario in [1, 3]:
-        assert pp.output_store.filenum == 0
-    else:
-        assert pp.output_store.filenum == 4
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        ),
-        (   # input scenario 3: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
-        )
-    ]
-)
-def test_get_latest_file_by_suffix(monkeypatch, input_file_map, output_file_map,
-                                   file_size_limit_in_gb, input_scenario):
-
-    # if there is no file in the output file map
-    # verify that we don't find a latest file
-    # otherwise, ensure latest file has the largest
-    # numerical suffix
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario in [1, 3]:
-        latest_file = pp.output_store._get_latest_file_by_suffix(
-            pp.output_store.get_files_from_table_log())
-        assert latest_file is None
-    else:
-        latest_file_pp = pp.output_store._get_latest_file_by_suffix(
-            pp.output_store.get_files_from_table_log())
-
-        latest_file_test = [file.replace("db/all_types/", "")
-                            for file in list(output_file_map.values())]
-        latest_file_test.sort()
-        latest_file_test = latest_file_test[-1]
-        assert latest_file_pp == latest_file_test
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1
-        )
-    ]
-)
-def test_get_table_basepath(monkeypatch, input_file_map, output_file_map,
-                            file_size_limit_in_gb):
-    # the function can't really fail, just verifying that
-    # output looks sensible
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    basepath = pp.input_store._get_table_basepath()
-    bp_len = len(basepath)
-
-    assert basepath[(bp_len - 15):] == "land/all_types/"
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        ),
-        (   # input scenario 3: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
-        )
-    ]
-)
-def test_get_files_from_table_log(monkeypatch, input_file_map, output_file_map,
-                                  file_size_limit_in_gb, input_scenario):
-
-    # test that we get en empty list for the no file scenario,
-    # otherwise, ensure file names match
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario == 3:
-        assert pp.input_store.get_files_from_table_log() == []
-    else:
-        test_files = [val.replace("land/all_types/", "")
-                      for val in list(input_file_map.values())]
-        test_files.sort()
-        pp_files = list(pp.input_store.get_files_from_table_log())
-        pp_files.sort()
-
-        assert test_files == pp_files
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        ),
-        (   # input sceario 3: no input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # existing output
-            {"tests/data/append_files/input_scenario_3/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_3/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet"},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
-        ),
-        (   # input scenario 4: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            4
-        )
-    ]
-)
-def test_append_files(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb, input_scenario):
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    # if there are no input files and no existing output files,
-    # expecting a value error when we try to append,
-    #  as there are no new input files to read in and concatenate.
-    if input_scenario == 4:
-        with pytest.raises(ValueError):
-            appended_files_pp = pp._append_files()
-
-    else:
-        appended_files_pp = pp._append_files()
-        appended_files_expected = reader.read("tests/data/append_files/input_scenario_"
-                                              f"{input_scenario}/appended_output"
-                                              ".snappy.parquet")
-        assert_frame_equal(appended_files_pp, appended_files_expected)
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario,
-    appended_file,
-    expected_file_size
-    """,
-    [       # input scenario 1: large (ish) input file, small file size limit
-        (
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            5 * 10**-6,
-            # input scenario
-            1,
-            # appended file
-            "tests/data/get_chunk_increments/all_types_x12.csv",
-            # expected file size
-            0.00000641
-        ),
-        (   # input scenario 2: one line file
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input scenario
-            2,
-            # appended file
-            "tests/data/get_chunk_increments/all_types_one_line.csv",
-            # expected file size
-            0.000005778
-        ),
-        (   # input scenario 3: no input files
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            5 * 10**-6,
-            # input scenario
-            3,
-            # no appended file
-            None,
-            # no expected file size
-            None
-        )
-    ]
-)
-def test_set_file_size_on_disk(monkeypatch, input_file_map, output_file_map,
-                               file_size_limit_in_gb, input_scenario,
-                               appended_file, expected_file_size):
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario == 3:
-        with pytest.raises(AttributeError):
-            pp._set_file_size_on_disk(appended_file)
-
-    else:
-        meta = Metadata.from_json("tests/data/all_types.json")
-        file = cast_pandas_table_to_schema(
-            reader.read(appended_file), meta)
-
-        pp._set_file_size_on_disk(file)
-        assert round(pp.file_size_on_disk, 9) == expected_file_size
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario,
-    file_to_chunk_up,
-    expected_chunk_increments
-    """,
-    [       # input scenario 1: large (ish) input file, small file size limit
-        (
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            5 * 10**-6,
-            # input scenario
-            1,
-            "tests/data/get_chunk_increments/all_types_x12.csv",
-            # expected chunk increments
-            ([1, 94], [93, 120])
-        ),
-
-        (   # input scenario 2: large (ish) input file, larger file size limit
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input scenario
-            2,
-            # file to chunk up
-            "tests/data/get_chunk_increments/all_types_x12.csv",
-            # expected chunk increments
-            ([1], [120])
-        ),
-        (   # input scenario 3: one line file
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input scenario
-            3,
-            # file to chunk up,
-            "tests/data/get_chunk_increments/all_types_one_line.csv",
-            # expected chunk increments
-            ([1], [1])
-        ),
-        (   # input scenario 4: no input files
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            5 * 10**-6,
-            # input scenario
-            4,
-            # not file to chunk up
-            None,
-            # no expected chunk size
-            None
-        )
-    ]
-)
-def test_get_chunk_increments(monkeypatch, input_file_map, output_file_map,
-                              file_size_limit_in_gb, input_scenario,
-                              file_to_chunk_up, expected_chunk_increments):
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    # If there's no input, expecting an attribute error
-    # when trying to get nrows of df
-    if input_scenario == 4:
-        with pytest.raises(AttributeError):
-            pp._set_file_size_on_disk(None)
-    else:
-        meta = Metadata.from_json("tests/data/all_types.json")
-        file = cast_pandas_table_to_schema(
-            reader.read(file_to_chunk_up), meta)
-
-        pp._set_file_size_on_disk(file)
-        assert pp._get_chunk_increments() == expected_chunk_increments
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        ),
-        (   # input sceario 3: no input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # existing output
-            {"tests/data/append_files/input_scenario_3/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_3/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet"},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
-        ),
-        (   # input scenario 4: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            4
-        )
-    ]
-)
-def test_get_input_files(monkeypatch, input_file_map, output_file_map,
-                         file_size_limit_in_gb, input_scenario):
-    # Testing input files by returning and appending them all
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb) 
-    # If no input files, not expecting to return anything
-    # hence expecting a ValueError when we try to concat nothing
-
-    if input_scenario in [3, 4]:
-        with pytest.raises(ValueError):
-            concat(pp._get_input_files())
-    else:
-        # only want the results from append_files/input_scenario_1
-        # as we don't want to have appended on any existing output
-        test_df = (
-            reader.read("tests/data/append_files/input_scenario_1"
-                        "/appended_output"
-                        ".snappy.parquet")
-        )
-        pp_df = concat(pp._get_input_files())
-
-        assert_frame_equal(test_df, pp_df)
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario,
-    expected_latest_file
+    file_format,expected_get_meta_return_type,cast_parquet
     """,
     [
-        (
-            # Input scenario 1: multiple existing outputs, consecutive labelling
-            {},
-            # output file map
-            {
-                "tests/data/get_latest_file/input_scenario_1/all_types.snappy.parquet":
-                "db/all_types/all_types_0.snappy.parquet",
-                "tests/data/get_latest_file/input_scenario_1/all_types_2.snappy.parquet":
-                "db/all_types/all_types_2.snappy.parquet"
-            },
-            1,
-            # input scenario
-            1,
-            # expected latest file
-            "tests/data/get_latest_file/input_scenario_1/all_types_2.snappy.parquet"
-        ),
-        (
-            # Input scenario 2: Multiple output files, non-consecutive labelling
-            {},
-            # output file map
-            {
-                "tests/data/get_latest_file/input_scenario_2/all_types.snappy.parquet":
-                "db/all_types/all_types_0.snappy.parquet",
-                "tests/data/get_latest_file/input_scenario_2/all_types_2.snappy.parquet":
-                "db/all_types/all_types_2.snappy.parquet",
-                "tests/data/get_latest_file/input_scenario_2/all_types_11.snappy.parquet":
-                "db/all_types/all_types_11.snappy.parquet"
-            },
-            1,
-            # input scenario
-            2,
-            # expected latest file
-            "tests/data/get_latest_file/input_scenario_2/all_types_11.snappy.parquet"
-        ),
-        (
-            # Scenario 3: no output
-            {},
-            # Don't need any output files
-            {},
-            # file size limit
-            1,
-            # input scenario
-            3,
-            # expected latest file
-            None
-        )
-    ]
+        # parquet inputs: returns metadata only if cast_parquet is true
+        ("parquet", Metadata, True),
+        ("parquet", type(None), False),
+        ("snappy.parquet", Metadata, True),
+        ("snappy.parquet", type(None), False),
+        # jsonl/csv inputs: always returns metadata regardless of cast_parquet
+        ("csv", Metadata, True),
+        ("csv", Metadata, False),
+        ("jsonl", Metadata, True),
+        ("jsonl", Metadata, False),
+    ],
 )
-def test_get_latest_file(monkeypatch, input_file_map, output_file_map,
-                         file_size_limit_in_gb,
-                         input_scenario, expected_latest_file):
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    # expecting a type error if we try and read in  latest
-    # file when there are no existing output files
-    if input_scenario == 3:
-        with pytest.raises(TypeError):
-            pp._get_latest_file()
-    else:
-        elf = reader.read(expected_latest_file)
-        assert_frame_equal(pp._get_latest_file(), elf)
+def test_get_meta(
+    tmp_path, file_format: str,
+    expected_get_meta_return_type: bool, cast_parquet: bool
+):
+    # set up
+    pp = setup_packer(
+        tmp_path, cast_parquet=cast_parquet,
+        metadata="tests/data/all_types.json"
+    )
+    # assert type is expected type
+    assert type(pp._get_meta(file_format)) == expected_get_meta_return_type
 
 
 @pytest.mark.parametrize(
     """
     input_file_map,
     output_file_map,
-    file_size_limit_in_gb,
-    input_scenario,
-    file_to_read
+    file_limit_gigabytes,
+    expected_output_df
+    """,
+    [   
+        # scenario 1: no existing data, and the input data is all appended
+        (
+            {
+                "tests/data/all_types.csv":[
+                    "land/all_types/all_types.csv",
+                    "land/all_types/all_types2.csv",
+                ]
+            },
+            {},
+            1,
+            data_maker(20)
+        ),
+        # scenario 2: existing data, and the data is appended to the end of the file
+        (
+            {
+                "tests/data/all_types.csv":[
+                    "land/all_types/all_types.csv",
+                    "land/all_types/all_types2.csv",
+                ]
+            },
+            {"tests/data/all_types.csv":["db/all_types/all_types_0.snappy.parquet"]},
+            1,
+            data_maker(30)
+        ),
+        # scenatio 3: existing data, and the data is not appened to the end
+        # the input data is about ~8kb on disk, so the file limit is set to 6kb
+        (
+            {
+                "tests/data/all_types.csv":[
+                    "land/all_types/all_types.csv",
+                    "land/all_types/all_types2.csv",
+                ]
+            },
+            {"tests/data/all_types.csv":["db/all_types/all_types_0.snappy.parquet"]},
+            6*10**-6,
+            data_maker(20)
+        )
+    ]
+)
+@pytest.mark.parametrize(
+    "metadata",[None, Metadata.from_json("tests/data/all_types.json")]
+)
+def test_append_files(
+    tmp_path, input_file_map, output_file_map,
+    file_limit_gigabytes, expected_output_df, metadata
+):
+    # positive tests for appending files i.e. ones that won't fail
+    pp = setup_packer(
+        tmp_path, input_file_map, output_file_map, 
+        file_limit_gigabytes=file_limit_gigabytes, metadata=metadata, cast_parquet=True
+    )
+    pp.output_store.table_extension = "snappy.parquet"
+    expected_output_df = cast_pandas_table_to_schema(
+        expected_output_df, metadata
+    ) if metadata else expected_output_df
+    assert_frame_equal(pp._append_files(), expected_output_df)
+
+
+@pytest.mark.parametrize("data_size",[1, 3, 10, 100, 1000, 10000])
+# No jsonl as there are issues with pandas and jsonl
+@pytest.mark.parametrize("data_format", ["csv", "parquet", "snappy.parquet"])
+@pytest.mark.parametrize("metadata", [True, False])
+def test_set_file_size_on_disk(tmp_path, data_size, data_format, metadata):
+    # get metadata if required
+    metadata = "tests/data/all_types.json" if metadata else None
+    # setup packer
+    pp = setup_packer(tmp_path, metadata=metadata)
+    pp.output_store.table_extension = data_format
+    # get the dataframe
+    df = data_maker(data_size, metadata=metadata)
+    # write to disk and get size from os.path.getsize
+    with tempfile.NamedTemporaryFile(suffix = f".{data_format}") as f:
+        writer.write(df, f.name)
+        expected_file_size = round(os.path.getsize(f.name) * 10**-9, 9)
+    # get the file size on disk according to s3_data_packer
+    pp._set_file_size_on_disk(df)
+    # asssert!
+    assert round(pp.file_size_on_disk, 9) == expected_file_size
+
+
+@pytest.mark.parametrize(
+    "file_limit_gigabytes, df, expected_chunk_increments",
+    [   # input scenario 1: large (ish) input file, small file size limit
+        (5 * 10 ** -6, data_maker(120), ([0, 82], [82, 120])),
+        # input scenario 2: large file, large file limit
+        (1, data_maker(120), ([0], [120])),
+        # input scenario 3: one line file
+        (1, data_maker(1), ([0], [1]))
+    ],
+)
+def test_get_chunk_increments(
+    tmp_path, file_limit_gigabytes, df, expected_chunk_increments,
+):
+    pp = setup_packer(tmp_path, file_limit_gigabytes=file_limit_gigabytes)
+    pp._set_file_size_on_disk(df)
+    assert pp._get_chunk_increments() == expected_chunk_increments
+
+
+@pytest.mark.parametrize(
+    """
+    input_filemap,output_filemap,total_lines
     """,
     [
+        # scenario 0: single line input, no existing output
         (
-            # testing csv extension
+            {
+                "tests/data/all_types_one_line.csv": [
+                    "land/all_types/all_types_a"
+                ]
+            },
             {},
-            {},
-            1,
-            1,
-            "tests/data/all_types.csv"
-        ),
-        (
-            # testing parquet ext
-            {},
-            {},
-            1,
-            2,
-            "tests/data/all_types.snappy.parquet",
-        ),
-        (
-            # null scenario
-            {},
-            {},
-            1,
-            3,
-            None
-        )
-    ]
-)
-def test_read_file(monkeypatch, input_file_map, output_file_map,
-                   file_size_limit_in_gb, input_scenario,
-                   file_to_read):
-
-    # Expecting a TypeError if function tries to
-    # read a file which doesn't exist
-    # Otherwise, testing whether dfs match when casting
-    # to a meta data schema and when not casting
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario == 3:
-        with pytest.raises(TypeError):
-            pp._read_file(file_to_read)
-    else:
-        if input_scenario == 1:
-            meta = Metadata.from_json("tests/data/all_types.json")
-            test_df = cast_pandas_table_to_schema(
-                reader.read(file_to_read),
-                meta
-            )
-            test_pp = pp._read_file(file_to_read)
-        else:
-            test_df = reader.read(file_to_read)
-            test_pp = pp._read_file(file_to_read, ext="snappy.parquet")
-
-        assert_frame_equal(test_pp, test_df)
-
-
-@pytest.mark.parametrize(
-    """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
             1
         ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
+        # scenario 1: 1 file in, no existing output
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "land/all_types/all_types_a"
+                ]
+            },
+            {},
+            10
         ),
-        (   # input sceario 3: no input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
+        # scenario 2: multiple data in, no existing output
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "land/all_types/all_types_a",
+                    "land/all_types/all_types_b",
+                ]
+            },
             {},
-            # existing output
-            {"tests/data/append_files/input_scenario_3/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_3/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet"},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
+            20
         ),
-        (   # input scenario 4: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            4
-        )
+        # scenario 3: 1 data in, 1 data existing output
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "land/all_types/all_types_a"
+                ]
+            },
+            {
+                "tests/data/all_types.csv": [
+                    "db/all_types/all_types_0"
+                ]
+            },
+            20
+        ),
+        # scenario 4: multi in, multi existing
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "land/all_types/all_types_a",
+                    "land/all_types/all_types_b",
+                ]
+            },
+            {
+                "tests/data/all_types.csv": [
+                    "db/all_types/all_types_0",
+                    "db/all_types/all_types_1",
+                ]
+            },
+            40
+        ),
     ]
 )
-def test_should_append_data(monkeypatch, input_file_map, output_file_map,
-                            file_size_limit_in_gb,
-                            input_scenario):
-
-    # default value for should_append_data is False, so just
-    # want to check that is True on input scenario 2 & 3
-    # and false otherwise
-
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario in [2, 3]:
-        assert pp.output_store._should_append_data()
-    else:
-        assert not pp.output_store._should_append_data()
-
-
-@pytest.mark.parametrize(
+@pytest.mark.parametrize("file_limit_gigabytes", [1, 6*10**-6])
+# jsonl isn't done because pandas makes boolean jsonl values ints and it's a pain
+@pytest.mark.parametrize("ff", ["csv", "parquet", "snappy.parquet"])
+def test_packed_data(
+    tmp_path, input_filemap, output_filemap, total_lines, file_limit_gigabytes, ff
+):
     """
-    input_file_map,
-    output_file_map,
-    file_size_limit_in_gb,
-    input_scenario
-    """,
-    [       # input scenario 1: plenty of input, no existing output
-        (   # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_1/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_1/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_1/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            1
-        ),
-        (   # input scenario 2: plenty of input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {"tests/data/append_files/input_scenario_2/all_types.csv":
-             "land/all_types/all_types.csv",
-             "tests/data/append_files/input_scenario_2/all_types2.csv":
-             "land/all_types/all_types2.csv",
-             "tests/data/append_files/input_scenario_2/all_types3.csv":
-             "land/all_types/all_types3.csv"
-             },
-            # existing output
-            {"tests/data/append_files/input_scenario_2/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_3.snappy.parquet":
-             "db/all_types/all_types_2.snappy.parquet",
-             "tests/data/append_files/input_scenario_2/all_types_4.snappy.parquet":
-             "db/all_types/all_types_4.snappy.parquet"
-             },
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            2
-        ),
-        (   # input sceario 3: no input, plenty of existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # existing output
-            {"tests/data/append_files/input_scenario_3/all_types.snappy.parquet":
-             "db/all_types/all_types_0.snappy.parquet",
-             "tests/data/append_files/input_scenario_3/all_types_2.snappy.parquet":
-             "db/all_types/all_types_1.snappy.parquet"},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            3
-        ),
-        (   # input scenario 4: no input, no existing output
-            # dictionary specifying files to copy over to mock land
-            {},
-            # Not stipulating any extant output
-            {},
-            # Setting file size limit for later divvying up
-            1,
-            # input_scenario
-            4
-        )
-    ]
-)
-def test_data_to_add(monkeypatch, input_file_map, output_file_map,
-                     file_size_limit_in_gb, input_scenario):
+    tests that the data in is the same as all the data out, regardless of split.
+    This is the "end to end" test
+    """
+    # add the file formats to the files
+    if output_filemap:
+        output_filemap = {k:[f"{f}.{ff}" for f in v] for k,v in output_filemap.items()}
+    if input_filemap:
+        input_filemap = {k:[f"{f}.{ff}" for f in v] for k,v in input_filemap.items()}
 
-    # default value for data_to_add() if False, so just want
-    # to check that is True when there is data in the input file map
+    pp = setup_packer(
+        tmp_path, input_filemap, output_filemap,
+        file_limit_gigabytes=file_limit_gigabytes, output_file_ext=ff
+    )
+    pp.pack_data()
+    output_basepath = os.path.join(tmp_path, "db/all_types/")
+    out_files = [os.path.join(output_basepath, f) for f in os.listdir(output_basepath)]
+    df = pd.concat([reader.read(f) for f in out_files])
 
-    pp = setup_packer(monkeypatch, input_file_map, output_file_map,
-                      file_size_limit_in_gb)
-
-    if input_scenario in [3, 4]:
-        assert not pp._data_to_add()
-    else:
-        assert pp._data_to_add()
+    """ two things are going to happen here:
+        1. index is reset, this is so that the indexes aren't counted in whats different
+           this is done because by default, index data is kept, but in this context it
+           isn't important
+        2. sorting by the i column, as when the data is split up across multiple files
+           it changes the order of things sometimes, this is an issue. We want to
+           determine whether the same data ended up in the output as we put in, we don't
+           care about the order in which it appears in the file
+    """
+    assert_frame_equal(
+        df.sort_values("i").reset_index(drop=True),
+        data_maker(total_lines).sort_values("i").reset_index(drop=True)
+    )

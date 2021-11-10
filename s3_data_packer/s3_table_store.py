@@ -1,6 +1,7 @@
 import os
 
 from dataengineeringutils3 import s3
+from s3_data_packer.helpers import _list_files_in_path
 
 
 class S3TableStore:
@@ -26,9 +27,7 @@ class S3TableStore:
 
         self.table_log = {}
 
-        files = s3.get_filepaths_from_s3_folder(
-            self.basepath, file_extension=self.table_extension
-        )
+        files = _list_files_in_path(self.basepath, self.table_extension)
         for f in files:
             table_name, filename = f.replace(self.basepath, "", 1).split("/", 1)
             if table_name not in self.table_log:
