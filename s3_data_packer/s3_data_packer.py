@@ -7,10 +7,10 @@ import numpy as np
 
 from arrow_pd_parser import reader, writer
 from arrow_pd_parser.caster import cast_pandas_table_to_schema
-from s3_data_packer.constants import default_file_limit_gigabytes
-from s3_data_packer.helpers import get_file_format
 from mojap_metadata.metadata.metadata import Metadata
 from pandas import DataFrame, concat
+from s3_data_packer.constants import default_file_limit_gigabytes
+from s3_data_packer.helpers import get_file_format
 from s3_data_packer.s3_output_store import S3OutputStore
 from s3_data_packer.s3_table_store import S3TableStore
 from typing import List, Tuple, Union
@@ -26,13 +26,13 @@ class S3DataPacker:
         output_file_ext: str = "snappy.parquet",
         output_suffix: str = None,
         input_file_ext: str = None,
-        cast_parquet = False,
+        cast_parquet: bool = False,
         file_limit_gigabytes: int = default_file_limit_gigabytes,
     ):
 
         # set the blank table_name property. Has to be the _ one as it depends on itself
         self._table_name = None
-        
+
         self.cast_parquet = cast_parquet
 
         # build the input store
@@ -63,6 +63,8 @@ class S3DataPacker:
                 )
 
         self.output_store.table_extension = output_file_ext
+        # reset to rediscover files of the given extension
+        self.output_store._reset()
 
         # set it not blank now
         self.table_name = table_name
@@ -78,35 +80,40 @@ class S3DataPacker:
             self.metadata = metadata
         else:
             raise TypeError(f"metadata is specified as unknown type: {type(metadata)}")
-        
+
         if self.metadata is not None:
             self.metadata.set_col_type_category_from_types()
 
     def _get_meta(self, ext: str = None) -> Union[Metadata, None]:
-        meta = self.metadata if \
-            self.cast_parquet or ext not in ["snappy.parquet", "parquet"] else None
+        meta = (
+            self.metadata
+            if self.cast_parquet or ext not in ["snappy.parquet", "parquet"]
+            else None
+        )
         return meta
 
     def _set_file_size_on_disk(self, df: DataFrame):
         # write the data and get it's size on disk
         with tempfile.NamedTemporaryFile(
-            suffix= "." + self.output_store.table_extension
+            suffix="." + self.output_store.table_extension
         ) as t:
             self.table_nrows = df.shape[0]
             writer.write(df, t.name)
             self.file_size_on_disk = os.path.getsize(t.name) / (10 ** 9)
 
     def _get_chunk_increments(self) -> Tuple[List[int], List[int]]:
-        increment_size = int(
-            np.floor(
-                (
-                    self.output_store.parquet_file_limit_gigabytes
-                    / self.file_size_on_disk
+        increment_size = max(
+            int(
+                np.floor(
+                    (self.output_store.file_limit_gigabytes / self.file_size_on_disk)
+                    * self.table_nrows
                 )
-                * self.table_nrows
-            )
+            ),
+            1,
         )
-        increment_start = np.arange(1, self.table_nrows, increment_size).tolist()
+        increment_start = np.arange(
+            0, max(self.table_nrows, 1), increment_size
+        ).tolist()
         increment_end = np.arange(
             increment_size, self.table_nrows, increment_size
         ).tolist()
@@ -147,11 +154,9 @@ class S3DataPacker:
         df = cast_pandas_table_to_schema(df, meta) if meta else df
         return df
 
-    def _data_to_add(self) -> bool:
-        return bool(self.input_store.table_log)
-
     def pack_data(self):
-        if not self._data_to_add():
+        # any data to even add?
+        if not self.input_store.get_files_from_table_log():
             return
         # collate all the data from s3
         total_df = self._append_files()
@@ -203,7 +208,4 @@ class S3DataPacker:
 
     @cast_parquet.setter
     def cast_parquet(self, new_cast_parquet: bool):
-        if isinstance(new_cast_parquet, bool):
-            self._cast_parquet = new_cast_parquet
-        else:
-            raise TypeError("cast parquet must be boolean True or False")
+        self._cast_parquet = new_cast_parquet
