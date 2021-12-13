@@ -114,6 +114,7 @@ some-bucket/
 ```
 
 and the following data alreay in the output:
+```
 some-bucket/
 ├─ db/
 │  ├─ table/
