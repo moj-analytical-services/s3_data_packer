@@ -157,6 +157,8 @@ trigger `_reset`
 - `table_extension`: str (optional) = None, file format of the files. If set, files are 
 filtered on this else all files are considered
 (supported: `csv`, `jsonl`, `parquet`, `snappy.parquet`)
+- `parition_name`: str (optional) = None, the name of the partition used in this data set. It is used to populate
+`S3TableStore.partition_values`
 
 not set on intialisation arguments:
 - `table_log`: dict{str: list}, a dictionary in the format:
@@ -197,7 +199,7 @@ returns:
 arguments. returns nothing.
 
 
-## S3OutputStore
+## S3OutputStore(S3TableStore)
 _properties_
 set on initialisation arguments:
 - `file_limit_gigabytes`: int | float (optional), this is the limit for files to 
@@ -205,6 +207,9 @@ be considered "too big" and that must not be appended to anymore. In gigabytes.
 - `table_suffix`: str (optional) =  None, a suffix for the table, this 
 suffix goes before the filenumber but after the filename, making the output: 
 `{table_name}_{table_suffix}_{file_num}.{table_extension}`
+- `partition`: dict (optional) = None, a dictionary mapping of the partition/partition 
+value you want to write the data too. S3OutputStore will only consider data in this
+partition for it's calculations (e.g. latest file)
 
 `table_extension` defaults to `snappy.parquet` for `S3OutputStore`
 
@@ -289,6 +294,11 @@ passed as `table_suffix` to an object of `S3OutputStore`
 - `file_limit_gigabytes`: int | float (optional) = 256*10^-3, this is the limit 
 for files to be considered "too big" and that must not be appended to anymore. In 
 gigabytes. passed as `file_limit_gigabytes` to an object of `S3OutputStore`
+- `output_partition`: dict (optional) = None, passed to `S3OutputStore` as `partition`.
+data will be written to this partition (appened or otherwise)
+- `input_partition_name`: str (optional) = None, passed to `S3TableStore` as
+`partition_name`. Has no real effect in this instance, but is used to populate
+`S3DataPacker.input_store.partition_values` if reading in from a partitioned source
 
 not set from initialisation arguments
 - `input_store`: S3TableStore, initilaised with `input_basepath`, `table_name`, and 
