@@ -102,6 +102,39 @@ still in that file, it has now just been concatenated with other data.
 `snappy.parquet`, it can be used to chunk csv to jsonl, parquet to csv, or even csv to csv, basically any(jsonl, csv, parquet) to any(jsonl, csv, parquet) under the 
 same sequential filling of data shown
 
+### Partitions and packing data
+
+if you have a database with partitions, you may want to pack the data evenly in a given partition. So take the following input data:
+```
+some-bucket/
+├─ land/
+│  ├─ table/
+│  │  ├─ table_data_final_NEW_1969.csv   1gb
+│  │  ├─ table_data_new.csv              512mb
+```
+
+and the following data alreay in the output:
+some-bucket/
+├─ db/
+│  ├─ table/
+|  │  ├─ some_value=1649-01-30
+|  |  │  ├─ table_0.snappy.parquet    128mb
+```
+
+if you want to add the data to this partition, you would:
+```python
+from s3_data_packer import S3DataPacker
+packer = S3DataPacker(
+    "s3://some-bucket/land",
+    "s3://some-bucket/db",
+    "table"
+    output_partition = {"some_value": "1649-01-30"}
+)
+packer.pack_data()
+```
+
+if you wanted to add data to a new partition, simply change the value given in the `output_partition` dictionary kwarg
+
 ### Why?
 
 Primarily, this is used to create Athena database parquet files that are evenly 
