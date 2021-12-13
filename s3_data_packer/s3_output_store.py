@@ -23,7 +23,7 @@ class S3OutputStore(S3TableStore):
         self._partition_name = None
 
         super().__init__(basepath, table_name, **kwargs)
-        
+
         self.partition = partition
 
         self.file_limit_gigabytes = file_limit_gigabytes

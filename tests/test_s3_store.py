@@ -11,22 +11,18 @@ from tests.helpers import setup_output_store, setup_input_store
     partition
     """,
     [  # scenario 1: no existing output
-        (
-            {},
-            "all_types_0",
-            None
-        ),
+        ({}, "all_types_0", None),
         # scenario 2: existing output non 0
         (
             {"tests/data/all_types.csv": ["db/all_types/all_types_2"]},
             "all_types_2",
-            None
+            None,
         ),
         # scenario 3: existing output 0
         (
             {"tests/data/all_types.csv": ["db/all_types/all_types_0"]},
             "all_types_0",
-            None
+            None,
         ),
         # scenario 4 many existing output non 0, non sequential
         (
@@ -37,7 +33,7 @@ from tests.helpers import setup_output_store, setup_input_store
                 ]
             },
             "all_types_12",
-            None
+            None,
         ),
         # scenario 5 existing output and partition
         (
@@ -48,9 +44,9 @@ from tests.helpers import setup_output_store, setup_input_store
                 ]
             },
             "all_types_1",
-            {"some_val":"2004-11-16"}
+            {"some_val": "2004-11-16"},
         ),
-        # existing output and parition, but picks lower numbered one because of 
+        # existing output and parition, but picks lower numbered one because of
         # partition picked
         (
             {
@@ -60,16 +56,21 @@ from tests.helpers import setup_output_store, setup_input_store
                 ]
             },
             "all_types_0",
-            {"some_val":"2004-02-01"}
-        )
+            {"some_val": "2004-02-01"},
+        ),
     ],
 )
 @pytest.mark.parametrize("file_format", ["csv", "jsonl", "parquet", "snappy.parquet"])
 @pytest.mark.parametrize("table_suffix", [None, "a_suffix", "55", "uwu"])
 @pytest.mark.parametrize("full_path", [True, False])
 def test_get_filename(
-    tmp_path, output_file_map, file_format, expected_filename,
-    table_suffix, full_path, partition
+    tmp_path,
+    output_file_map,
+    file_format,
+    expected_filename,
+    table_suffix,
+    full_path,
+    partition,
 ):
     """
     _get_latest_file_by_suffix and _get_filename both return the same thing so can be
@@ -154,7 +155,7 @@ def test_get_filenum_from_filename_fail(tmp_path, fn):
                 ]
             },
             7456,
-        )
+        ),
     ],
 )
 def test_output_store_filenum(tmp_path, output_file_map, expected_output_store_filenum):
@@ -232,7 +233,11 @@ def test_input_partitions(tmp_path):
         ]
     }
     expected_partition_values = [
-        "1962-10-28", "fully_string", "True", "129531", "!@£$%^&*()_+-';,.<>[]~`"
+        "1962-10-28",
+        "fully_string",
+        "True",
+        "129531",
+        "!@£$%^&*()_+-';,.<>[]~`",
     ]
     expected_partition_values.sort()
 
@@ -255,7 +260,7 @@ def test_input_partitions(tmp_path):
                 ]
             },
             {"some_val": "2"},
-            "all_types_3.snappy.parquet"
+            "all_types_3.snappy.parquet",
         ),
         # secenario 2: basic usage, one partiion, one file
         (
@@ -265,14 +270,10 @@ def test_input_partitions(tmp_path):
                 ]
             },
             {"some_val": "1"},
-            "all_types_0.snappy.parquet"
+            "all_types_0.snappy.parquet",
         ),
         # scenario 3: no existing output files
-        (
-            {},
-            {"some_val": "2"},
-            "all_types_0.snappy.parquet"
-        ),
+        ({}, {"some_val": "2"}, "all_types_0.snappy.parquet"),
         # secenario 4: existing output, but not in the partition
         (
             {
@@ -281,10 +282,12 @@ def test_input_partitions(tmp_path):
                 ]
             },
             {"some_val": "1"},
-            "all_types_0.snappy.parquet"
-        )
-    ]
+            "all_types_0.snappy.parquet",
+        ),
+    ],
 )
-def test_latest_file_with_partition(tmp_path, output_file_map, partition, expected_latest_file):
+def test_latest_file_with_partition(
+    tmp_path, output_file_map, partition, expected_latest_file
+):
     output_store = setup_output_store(tmp_path, output_file_map, partition=partition)
     assert output_store._get_filename() == expected_latest_file

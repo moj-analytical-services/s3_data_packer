@@ -31,8 +31,13 @@ def setup_packer(
 
 
 def setup_output_store(
-    tmp, file_map: dict = None, file_limit_gigabytes: int = 1, table_suffix: str = None,
-    partition: dict = None, table_name = "all_types", basepath = "db/"
+    tmp,
+    file_map: dict = None,
+    file_limit_gigabytes: int = 1,
+    table_suffix: str = None,
+    partition: dict = None,
+    table_name="all_types",
+    basepath="db/",
 ):
 
     # join tmp_dir and the basepaths
@@ -47,11 +52,12 @@ def setup_output_store(
         table_name=table_name,
         file_limit_gigabytes=file_limit_gigabytes,
         table_suffix=table_suffix,
-        partition=partition
+        partition=partition,
     )
 
+
 def setup_input_store(
-    tmp, file_map: dict = None, table_name: str = "all_types", basepath = "land/"
+    tmp, file_map: dict = None, table_name: str = "all_types", basepath="land/"
 ):
     # join tmp_dir and the basepaths
     basepath = os.path.join(tmp, basepath)
