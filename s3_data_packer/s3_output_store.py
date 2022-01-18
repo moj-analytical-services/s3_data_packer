@@ -11,16 +11,40 @@ class S3OutputStore(S3TableStore):
     def __init__(
         self,
         basepath: str,
+        table_name: str = None,
         table_suffix: str = None,
+        partition: dict = None,
         file_limit_gigabytes: int = default_file_limit_gigabytes,
         **kwargs,
     ):
 
-        super().__init__(basepath, **kwargs)
-        if not self.table_extension:
-            self.table_extension = "snappy.parquet"
+        # set these to stop attribute errors
+        self._partition = None
+        self._partition_name = None
+
+        super().__init__(basepath, table_name, **kwargs)
+
+        self.partition = partition
+
         self.file_limit_gigabytes = file_limit_gigabytes
         self.table_suffix = table_suffix
+
+        if not self.table_extension:
+            self.table_extension = "snappy.parquet"
+
+    def get_files_from_table_log(self, full_path: bool = False) -> list:
+        if self.partition is not None:
+            reg_expr = re.compile(
+                f"^.+{self.partition_name}={self.partition_values[0]}/.+"
+            )
+            files = super().get_files_from_table_log(full_path=True)
+            files = [f for f in files if reg_expr.search(f)]
+            if not full_path:
+                files = [os.path.basename(f) for f in files]
+        else:
+            files = super().get_files_from_table_log(full_path=full_path)
+
+        return files
 
     def _get_latest_file_by_suffix(
         self, files: List[str], maxim: bool = True, full_path: bool = False
@@ -33,6 +57,15 @@ class S3OutputStore(S3TableStore):
                 file = os.path.join(self._get_table_basepath(), file)
         else:
             file = None
+
+        # get latest file in only the specified partition
+        if self.partition is not None and file is not None:
+            reg_expr = re.compile(
+                f"^.+{self.partition_name}={self.partition_values[0]}/.+"
+            )
+            if not reg_expr.search(file):
+                file = None
+
         return file
 
     def _get_filenum_from_filename(self, f: Union[str, None]) -> int:
@@ -51,7 +84,6 @@ class S3OutputStore(S3TableStore):
             self.filenum = 0
 
     def _should_append_data(self) -> bool:
-
         # the next writable file is the next most recent file that's under the size
         # step 2: get the detail about the file, if there is one
         append = False
@@ -76,6 +108,10 @@ class S3OutputStore(S3TableStore):
         else:
             ret_pth = f"{self.table_name}_{self.filenum}.{self.table_extension}"
         if full_path:
+            if self.partition is not None:
+                ret_pth = os.path.join(
+                    f"{self.partition_name}={self.partition_values[0]}", ret_pth
+                )
             ret_pth = os.path.join(self._get_table_basepath(), ret_pth)
         return ret_pth
 
@@ -90,3 +126,21 @@ class S3OutputStore(S3TableStore):
             file_list = self.get_files_from_table_log(full_path=True)
             self.latest_file = self._get_latest_file_by_suffix(file_list)
             self._set_latest_filenum()
+
+    @property
+    def partition(self):
+        return self._partition
+
+    @partition.setter
+    def partition(self, new_partition: dict):
+        """
+        sets the partition name and value from a dictionary in the format:
+            {"partition_name": "partition_value"}
+        """
+        self._partition = new_partition
+        if new_partition is not None:
+            self._partition_name = list(new_partition.keys())[0]
+            self.partition_values = [new_partition[self.partition_name]]
+            self._reset()
+        else:
+            self.partition_values = []

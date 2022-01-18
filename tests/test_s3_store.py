@@ -1,28 +1,28 @@
 import os
 import pytest
 
-from helpers import setup_output_store
+from tests.helpers import setup_output_store, setup_input_store
 
 
 @pytest.mark.parametrize(
     """
     output_file_map,
     expected_filename,
+    partition
     """,
     [  # scenario 1: no existing output
-        (
-            {},
-            "all_types_0",
-        ),
+        ({}, "all_types_0", None),
         # scenario 2: existing output non 0
         (
             {"tests/data/all_types.csv": ["db/all_types/all_types_2"]},
             "all_types_2",
+            None,
         ),
         # scenario 3: existing output 0
         (
             {"tests/data/all_types.csv": ["db/all_types/all_types_0"]},
             "all_types_0",
+            None,
         ),
         # scenario 4 many existing output non 0, non sequential
         (
@@ -33,6 +33,30 @@ from helpers import setup_output_store
                 ]
             },
             "all_types_12",
+            None,
+        ),
+        # scenario 5 existing output and partition
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "db/all_types/some_val=2020-02-01/all_types_0",
+                    "db/all_types/some_val=2004-11-16/all_types_1",
+                ]
+            },
+            "all_types_1",
+            {"some_val": "2004-11-16"},
+        ),
+        # existing output and parition, but picks lower numbered one because of
+        # partition picked
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "db/all_types/some_val=2020-02-01/all_types_0",
+                    "db/all_types/some_val=2004-11-16/all_types_1",
+                ]
+            },
+            "all_types_0",
+            {"some_val": "2004-02-01"},
         ),
     ],
 )
@@ -40,7 +64,13 @@ from helpers import setup_output_store
 @pytest.mark.parametrize("table_suffix", [None, "a_suffix", "55", "uwu"])
 @pytest.mark.parametrize("full_path", [True, False])
 def test_get_filename(
-    tmp_path, output_file_map, file_format, expected_filename, table_suffix, full_path
+    tmp_path,
+    output_file_map,
+    file_format,
+    expected_filename,
+    table_suffix,
+    full_path,
+    partition,
 ):
     """
     _get_latest_file_by_suffix and _get_filename both return the same thing so can be
@@ -54,7 +84,9 @@ def test_get_filename(
         k: [f"{f}.{file_format}" for f in v] for k, v in output_file_map.items()
     }
     # setup output_store
-    ps = setup_output_store(tmp_path, output_file_map, table_suffix=table_suffix)
+    ps = setup_output_store(
+        tmp_path, output_file_map, table_suffix=table_suffix, partition=partition
+    )
     ps.table_extension = file_format
     # build expected filename
     expected_filename = (
@@ -63,6 +95,9 @@ def test_get_filename(
         else expected_filename
     )
     expected_filename = f"{expected_filename}.{file_format}"
+    if partition is not None and full_path:
+        p_name, p_val = list(partition.items())[0]
+        expected_filename = os.path.join(f"{p_name}={p_val}", expected_filename)
     expected_filename = (
         os.path.join(tmp_path, "db/all_types", expected_filename)
         if full_path
@@ -181,3 +216,78 @@ def test_should_append_data(tmp_path, output_file_map, file_limit_gigabytes):
     should_append = True if (output_file_map and file_limit_gigabytes == 1) else False
 
     assert should_append == output_store._should_append_data()
+
+
+def test_input_partitions(tmp_path):
+    """
+    tests that the partition values are succesfully captured.
+    """
+
+    inp_fm = {
+        "tests/data/all_types.csv": [
+            "db/all_types/some_val=1962-10-28/at_0.snappy.parquet",
+            "db/all_types/some_val=fully_string/at_0.snappy.parquet",
+            "db/all_types/some_val=True/at_0.snappy.parquet",
+            "db/all_types/some_val=129531/at_0.snappy.parquet",
+            "db/all_types/some_val=!@£$%^&*()_+-';,.<>[]~`/at_0.snappy.parquet",
+        ]
+    }
+    expected_partition_values = [
+        "1962-10-28",
+        "fully_string",
+        "True",
+        "129531",
+        "!@£$%^&*()_+-';,.<>[]~`",
+    ]
+    expected_partition_values.sort()
+
+    input_store = setup_input_store(tmp_path, inp_fm, basepath="db/")
+    input_store.partition_name = "some_val"
+    input_store.partition_values.sort()
+    assert input_store.partition_values == expected_partition_values
+
+
+@pytest.mark.parametrize(
+    "output_file_map,partition,expected_latest_file",
+    [
+        # scenario 1: it picks the correct latest file, givent the partition
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "db/all_types/some_val=1/all_types_1.snappy.parquet",
+                    "db/all_types/some_val=1/all_types_2.snappy.parquet",
+                    "db/all_types/some_val=2/all_types_3.snappy.parquet",
+                ]
+            },
+            {"some_val": "2"},
+            "all_types_3.snappy.parquet",
+        ),
+        # secenario 2: basic usage, one partiion, one file
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "db/all_types/some_val=1/all_types_0.snappy.parquet",
+                ]
+            },
+            {"some_val": "1"},
+            "all_types_0.snappy.parquet",
+        ),
+        # scenario 3: no existing output files
+        ({}, {"some_val": "2"}, "all_types_0.snappy.parquet"),
+        # secenario 4: existing output, but not in the partition
+        (
+            {
+                "tests/data/all_types.csv": [
+                    "db/all_types/some_val=2/all_types_1.snappy.parquet",
+                ]
+            },
+            {"some_val": "1"},
+            "all_types_0.snappy.parquet",
+        ),
+    ],
+)
+def test_latest_file_with_partition(
+    tmp_path, output_file_map, partition, expected_latest_file
+):
+    output_store = setup_output_store(tmp_path, output_file_map, partition=partition)
+    assert output_store._get_filename() == expected_latest_file

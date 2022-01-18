@@ -22,11 +22,13 @@ class S3DataPacker:
         input_basepath: str,
         output_basepath: str,
         table_name: str,
-        metadata: Union[str, Metadata] = None,
+        metadata: Union[str, dict, Metadata] = None,
         output_file_ext: str = "snappy.parquet",
         output_suffix: str = None,
         input_file_ext: str = None,
         cast_parquet: bool = False,
+        output_partition: dict = None,
+        input_partition_name: str = None,
         file_limit_gigabytes: int = default_file_limit_gigabytes,
     ):
 
@@ -36,8 +38,9 @@ class S3DataPacker:
         self.cast_parquet = cast_parquet
 
         # build the input store
-        self.input_store = S3TableStore(input_basepath)
-        self.input_store.table_name = table_name
+        self.input_store = S3TableStore(
+            input_basepath, table_name, partition_name=input_partition_name
+        )
         if input_file_ext is None:
             self.input_store.table_extension = get_file_format(
                 self.input_store._get_table_basepath()
@@ -48,10 +51,11 @@ class S3DataPacker:
         # build the output store
         self.output_store = S3OutputStore(
             output_basepath,
+            table_name=table_name,
             table_suffix=output_suffix,
+            partition=output_partition,
             file_limit_gigabytes=file_limit_gigabytes,
         )
-        self.output_store.table_name = table_name
         found_output_file_ext = get_file_format(self.output_store._get_table_basepath())
 
         # if the output source contains files already, they must be of the same format
@@ -70,16 +74,7 @@ class S3DataPacker:
         self.table_name = table_name
 
         # read the metadata
-        if isinstance(metadata, str):
-            self.metadata = Metadata.from_json(metadata)
-        elif isinstance(metadata, Metadata):
-            self.metadata = metadata
-        elif isinstance(metadata, dict):
-            self.metadata = Metadata.from_dict(metadata)
-        elif metadata is None:
-            self.metadata = metadata
-        else:
-            raise TypeError(f"metadata is specified as unknown type: {type(metadata)}")
+        self.metadata = Metadata.from_infer(metadata) if metadata else metadata
 
         if self.metadata is not None:
             self.metadata.set_col_type_category_from_types()

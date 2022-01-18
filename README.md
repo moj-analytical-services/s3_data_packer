@@ -102,6 +102,40 @@ still in that file, it has now just been concatenated with other data.
 `snappy.parquet`, it can be used to chunk csv to jsonl, parquet to csv, or even csv to csv, basically any(jsonl, csv, parquet) to any(jsonl, csv, parquet) under the 
 same sequential filling of data shown
 
+### Partitions and packing data
+
+if you have a database with partitions, you may want to pack the data evenly in a given partition. So take the following input data:
+```
+some-bucket/
+├─ land/
+│  ├─ table/
+│  │  ├─ table_data_final_NEW_1969.csv   1gb
+│  │  ├─ table_data_new.csv              512mb
+```
+
+and the following data alreay in the output:
+```
+some-bucket/
+├─ db/
+│  ├─ table/
+|  │  ├─ some_value=1649-01-30
+|  |  │  ├─ table_0.snappy.parquet    128mb
+```
+
+if you want to add the data to this partition, you would:
+```python
+from s3_data_packer import S3DataPacker
+packer = S3DataPacker(
+    "s3://some-bucket/land",
+    "s3://some-bucket/db",
+    "table"
+    output_partition = {"some_value": "1649-01-30"}
+)
+packer.pack_data()
+```
+
+if you wanted to add data to a new partition, simply change the value given in the `output_partition` dictionary kwarg
+
 ### Why?
 
 Primarily, this is used to create Athena database parquet files that are evenly 
@@ -123,6 +157,8 @@ trigger `_reset`
 - `table_extension`: str (optional) = None, file format of the files. If set, files are 
 filtered on this else all files are considered
 (supported: `csv`, `jsonl`, `parquet`, `snappy.parquet`)
+- `parition_name`: str (optional) = None, the name of the partition used in this data set. It is used to populate
+`S3TableStore.partition_values`
 
 not set on intialisation arguments:
 - `table_log`: dict{str: list}, a dictionary in the format:
@@ -163,7 +199,7 @@ returns:
 arguments. returns nothing.
 
 
-## S3OutputStore
+## S3OutputStore(S3TableStore)
 _properties_
 set on initialisation arguments:
 - `file_limit_gigabytes`: int | float (optional), this is the limit for files to 
@@ -171,6 +207,9 @@ be considered "too big" and that must not be appended to anymore. In gigabytes.
 - `table_suffix`: str (optional) =  None, a suffix for the table, this 
 suffix goes before the filenumber but after the filename, making the output: 
 `{table_name}_{table_suffix}_{file_num}.{table_extension}`
+- `partition`: dict (optional) = None, a dictionary mapping of the partition/partition 
+value you want to write the data too. S3OutputStore will only consider data in this
+partition for it's calculations (e.g. latest file)
 
 `table_extension` defaults to `snappy.parquet` for `S3OutputStore`
 
@@ -255,6 +294,11 @@ passed as `table_suffix` to an object of `S3OutputStore`
 - `file_limit_gigabytes`: int | float (optional) = 256*10^-3, this is the limit 
 for files to be considered "too big" and that must not be appended to anymore. In 
 gigabytes. passed as `file_limit_gigabytes` to an object of `S3OutputStore`
+- `output_partition`: dict (optional) = None, passed to `S3OutputStore` as `partition`.
+data will be written to this partition (appened or otherwise)
+- `input_partition_name`: str (optional) = None, passed to `S3TableStore` as
+`partition_name`. Has no real effect in this instance, but is used to populate
+`S3DataPacker.input_store.partition_values` if reading in from a partitioned source
 
 not set from initialisation arguments
 - `input_store`: S3TableStore, initilaised with `input_basepath`, `table_name`, and 

@@ -5,6 +5,7 @@ from mojap_metadata import Metadata
 from pandas import concat, DataFrame
 from s3_data_packer import s3_output_store
 from s3_data_packer.s3_data_packer import S3DataPacker
+from s3_data_packer.s3_table_store import S3TableStore
 
 
 def setup_packer(
@@ -30,10 +31,14 @@ def setup_packer(
 
 
 def setup_output_store(
-    tmp, file_map: dict = None, file_limit_gigabytes: int = 1, table_suffix: str = None
+    tmp,
+    file_map: dict = None,
+    file_limit_gigabytes: int = 1,
+    table_suffix: str = None,
+    partition: dict = None,
+    table_name="all_types",
+    basepath="db/",
 ):
-
-    basepath = "db/"
 
     # join tmp_dir and the basepaths
     basepath = os.path.join(tmp, basepath)
@@ -42,14 +47,26 @@ def setup_output_store(
     if file_map:
         write_file_map(tmp, file_map)
     # setup S3OutputStore
-    output_store = s3_output_store.S3OutputStore(
+    return s3_output_store.S3OutputStore(
         basepath,
-        table_name="all_types",
+        table_name=table_name,
         file_limit_gigabytes=file_limit_gigabytes,
         table_suffix=table_suffix,
+        partition=partition,
     )
 
-    return output_store
+
+def setup_input_store(
+    tmp, file_map: dict = None, table_name: str = "all_types", basepath="land/"
+):
+    # join tmp_dir and the basepaths
+    basepath = os.path.join(tmp, basepath)
+
+    # write any required existing files
+    if file_map:
+        write_file_map(tmp, file_map)
+
+    return S3TableStore(basepath, table_name)
 
 
 def write_file_map(base_dir: str, file_map: dict):
