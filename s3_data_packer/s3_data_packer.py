@@ -146,7 +146,9 @@ class S3DataPacker:
     def _read_file(self, fp: str, ext: str = None) -> DataFrame:
         meta = self._get_meta(ext)
         df = reader.read(fp)
-        df = cast_pandas_table_to_schema(df, meta) if meta else df
+        df = cast_pandas_table_to_schema(
+            df, meta, ignore_columns=meta.partitions
+        ) if meta else df
         return df
 
     def pack_data(self):
