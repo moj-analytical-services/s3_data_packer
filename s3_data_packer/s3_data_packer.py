@@ -138,7 +138,7 @@ class S3DataPacker:
     def _get_latest_file(self) -> DataFrame:
         # read the latest file into a pandas df
         path = self.output_store._get_latest_file_by_suffix(
-            self.output_store.get_files_from_table_log(), full_path=True
+            self.output_store.get_files_from_table_log(full_path=True)
         )
         df = self._read_file(path, self.output_store.table_extension)
         return df
