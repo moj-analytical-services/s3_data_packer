@@ -11,7 +11,7 @@ When basepath or table_name are created. When either `basepath` or `table_name` 
 updated, the table log is also updated
 
 [S3OutputStore](#S3OutputStore):
-used for determining a regular fomratting output files in the either format:
+used for determining a regular formatting output files in the either format:
 - `s3://basepath/table_name/table_name_0.extension`
 - `s3://basepath/table_name/table_name_suffix_0.extension`
 it also has a number of useful methods around determining what is the latest file and 

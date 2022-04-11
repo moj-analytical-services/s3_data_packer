@@ -9,11 +9,14 @@ from arrow_pd_parser import reader, writer
 from arrow_pd_parser.caster import cast_pandas_table_to_schema
 from mojap_metadata.metadata.metadata import Metadata
 from pandas import DataFrame, concat
-from s3_data_packer.constants import default_file_limit_gigabytes
+from s3_data_packer.constants import (
+    default_file_limit_gigabytes,
+    default_read_chunksize,
+)
 from s3_data_packer.helpers import get_file_format
 from s3_data_packer.s3_output_store import S3OutputStore
 from s3_data_packer.s3_table_store import S3TableStore
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Iterable
 
 
 class S3DataPacker:
@@ -94,7 +97,7 @@ class S3DataPacker:
         ) as t:
             self.table_nrows = df.shape[0]
             writer.write(df, t.name)
-            self.file_size_on_disk = os.path.getsize(t.name) / (10 ** 9)
+            self.file_size_on_disk = os.path.getsize(t.name) / (10**9)
 
     def _get_chunk_increments(self) -> Tuple[List[int], List[int]]:
         increment_size = max(
@@ -146,9 +149,11 @@ class S3DataPacker:
     def _read_file(self, fp: str, ext: str = None) -> DataFrame:
         meta = self._get_meta(ext)
         df = reader.read(fp)
-        df = cast_pandas_table_to_schema(
-            df, meta, ignore_columns=meta.partitions
-        ) if meta else df
+        df = (
+            cast_pandas_table_to_schema(df, meta, ignore_columns=meta.partitions)
+            if meta
+            else df
+        )
         return df
 
     def pack_data(self):
@@ -206,3 +211,68 @@ class S3DataPacker:
     @cast_parquet.setter
     def cast_parquet(self, new_cast_parquet: bool):
         self._cast_parquet = new_cast_parquet
+
+
+class S3BigDataPacker(S3DataPacker):
+    def __init__(
+        self,
+        input_basepath: str,
+        output_basepath: str,
+        table_name: str,
+        metadata: Union[str, dict, Metadata] = None,
+        output_file_ext: str = "snappy.parquet",
+        output_suffix: str = None,
+        input_file_ext: str = None,
+        cast_parquet: bool = False,
+        output_partition: dict = None,
+        input_partition_name: str = None,
+        file_limit_gigabytes: int = default_file_limit_gigabytes,
+        read_chunksize: int = default_read_chunksize,
+    ):
+        super.__init__(
+            input_basepath,
+            output_basepath,
+            table_name,
+            metadata,
+            output_file_ext,
+            output_suffix,
+            input_file_ext,
+            cast_parquet,
+            output_partition,
+            input_partition_name,
+            file_limit_gigabytes,
+        )
+
+        self.read_chunksize = read_chunksize
+
+    def _get_input_files(self) -> Iterable[DataFrame]:
+        # get a list of input files as Dataframes
+        yield from self._read_file(
+            self.input_store._get_table_basepath(), self.input_store.table_extension
+        )
+
+    def _read_file(self, fp: str, ext: str = None) -> Iterable[DataFrame]:
+        meta = self._get_meta(ext)
+        for df in reader.read(fp, chunksize=self.read_chunksize):
+            df = (
+                cast_pandas_table_to_schema(df, meta, ignore_columns=meta.partitions)
+                if meta
+                else df
+            )
+            yield df
+
+    def pack_data(self):
+        for total_df in self._get_input_files():
+            total_df = self._append_files()
+            # get the size on disk
+            self._set_file_size_on_disk(total_df)
+            # get the indexes to write to
+            start_vals, end_vals = self._get_chunk_increments()
+            for i in range(len(start_vals)):
+                # break up the df
+                df = total_df[start_vals[i] : end_vals[i]]
+                out_path = self.output_store._get_filename(full_path=True)
+                # output the pandas df
+                writer.write(df, out_path, metadata=self.metadata)
+                # increment the filenumber
+                self.output_store.filenum += 1
