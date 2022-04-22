@@ -273,7 +273,7 @@ class S3BigDataPacker(S3DataPacker):
                 self.output_store.filenum += 1
             # get the size on disk
             self._set_file_size_on_disk(df)
-            # get the indexes to write to
+            # get the indices to write to
             start_vals, end_vals = self._get_chunk_increments()
             for i in range(len(start_vals)):
                 # break up the df
