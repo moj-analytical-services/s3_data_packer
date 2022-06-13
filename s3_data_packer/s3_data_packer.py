@@ -11,8 +11,7 @@ from arrow_pd_parser.utils import infer_file_format
 from mojap_metadata.metadata.metadata import Metadata
 from pandas import DataFrame, concat
 from s3_data_packer.constants import (
-    default_file_limit_gigabytes,
-    default_read_chunksize,
+    default_file_limit_gigabytes
 )
 from s3_data_packer.helpers import get_file_format
 from s3_data_packer.s3_output_store import S3OutputStore
@@ -34,6 +33,7 @@ class S3DataPacker:
         output_partition: dict = None,
         input_partition_name: str = None,
         file_limit_gigabytes: int = default_file_limit_gigabytes,
+        read_chunksize: Union[int, str] = None
     ):
 
         # set the blank table_name property. Has to be the _ one as it depends on itself
@@ -158,6 +158,8 @@ class S3DataPacker:
         return df
 
     def pack_data(self):
+        if read_chunksize is not None:
+            self._pack_chunked_data()
         # any data to even add?
         if not self.input_store.get_files_from_table_log():
             return
@@ -175,6 +177,46 @@ class S3DataPacker:
             writer.write(df, out_path, metadata=self.metadata)
             # increment the filenumber
             self.output_store.filenum += 1
+
+    def _read_chunked_file(self, fp: str, ext: str = None) -> Iterable[DataFrame]:
+        file_format = self.input_store.table_extension if ext is None else ext
+        meta = self._get_meta(ext)
+        
+        for df in reader.read(fp, file_format=file_format, chunksize=self.read_chunksize):
+            df = (
+                cast_pandas_table_to_schema(df, meta, ignore_columns=meta.partitions)
+                if meta
+                else df
+            )
+            yield df
+    
+    def _get_dataframes(self) -> Iterable[DataFrame]:
+        # get a list of input files as chunked Dataframes
+        yield from self._read_chunked_file(
+            self.input_store._get_table_basepath(), self.input_store.table_extension
+        )
+
+    def _pack_chunked_data(self):
+        for df in self._get_dataframes():
+            if self.output_store._should_append_data():
+                existing_df = self._get_latest_file()
+                df = concat([existing_df, df])
+            else:
+                self.output_store.filenum += 1
+            # get the size on disk
+            self._set_file_size_on_disk(df)
+            # get the indices to write to
+            start_vals, end_vals = self._get_chunk_increments()
+            for i in range(len(start_vals)):
+                # break up the df
+                df_chunk = df[start_vals[i] : end_vals[i]]
+                out_path = self.output_store._get_filename(full_path=True)
+                # output the pandas df
+                writer.write(df_chunk, out_path, metadata=self.metadata)
+                # increment the filenumber
+                self.output_store.filenum += 1
+            # Reset the output store for the next chunked dataframe
+            self.output_store._reset()
 
     @property
     def table_name(self):
@@ -212,76 +254,4 @@ class S3DataPacker:
     @cast_parquet.setter
     def cast_parquet(self, new_cast_parquet: bool):
         self._cast_parquet = new_cast_parquet
-
-
-class S3BigDataPacker(S3DataPacker):
-    def __init__(
-        self,
-        input_basepath: str,
-        output_basepath: str,
-        table_name: str,
-        metadata: Union[str, dict, Metadata] = None,
-        output_file_ext: str = "snappy.parquet",
-        output_suffix: str = None,
-        input_file_ext: str = None,
-        cast_parquet: bool = False,
-        output_partition: dict = None,
-        input_partition_name: str = None,
-        file_limit_gigabytes: int = default_file_limit_gigabytes,
-        read_chunksize: int = default_read_chunksize,
-    ):
-        super().__init__(
-            input_basepath,
-            output_basepath,
-            table_name,
-            metadata,
-            output_file_ext,
-            output_suffix,
-            input_file_ext,
-            cast_parquet,
-            output_partition,
-            input_partition_name,
-            file_limit_gigabytes,
-        )
-
-        self.read_chunksize = read_chunksize
         
-    def _read_chunked_file(self, fp: str, ext: str = None) -> Iterable[DataFrame]:
-        file_format = self.input_store.table_extension if ext is None else ext
-        meta = self._get_meta(ext)
-        
-        for df in reader.read(fp, file_format=file_format, chunksize=self.read_chunksize):
-            df = (
-                cast_pandas_table_to_schema(df, meta, ignore_columns=meta.partitions)
-                if meta
-                else df
-            )
-            yield df
-    
-    def _get_dataframes(self) -> Iterable[DataFrame]:
-        # get a list of input files as chunked Dataframes
-        yield from self._read_chunked_file(
-            self.input_store._get_table_basepath(), self.input_store.table_extension
-        )
-
-    def pack_data(self):
-        for df in self._get_dataframes():
-            if self.output_store._should_append_data():
-                existing_df = self._get_latest_file()
-                df = concat([existing_df, df])
-            else:
-                self.output_store.filenum += 1
-            # get the size on disk
-            self._set_file_size_on_disk(df)
-            # get the indices to write to
-            start_vals, end_vals = self._get_chunk_increments()
-            for i in range(len(start_vals)):
-                # break up the df
-                df_chunk = df[start_vals[i] : end_vals[i]]
-                out_path = self.output_store._get_filename(full_path=True)
-                # output the pandas df
-                writer.write(df_chunk, out_path, metadata=self.metadata)
-                # increment the filenumber
-                self.output_store.filenum += 1
-            # Reset the output store for the next chunked dataframe
-            self.output_store._reset()
