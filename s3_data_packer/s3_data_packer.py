@@ -7,7 +7,6 @@ import numpy as np
 
 from arrow_pd_parser import reader, writer
 from arrow_pd_parser.caster import cast_pandas_table_to_schema
-from arrow_pd_parser.utils import infer_file_format
 from mojap_metadata.metadata.metadata import Metadata
 from pandas import DataFrame, concat
 from s3_data_packer.constants import default_file_limit_gigabytes
