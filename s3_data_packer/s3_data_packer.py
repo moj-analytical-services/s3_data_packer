@@ -159,7 +159,7 @@ class S3DataPacker:
 
     def pack_data(self):
         if self.read_chunksize is not None:
-            self._pack_chunked_data()
+            return self._pack_chunked_data()
         # any data to even add?
         if not self.input_store.get_files_from_table_log():
             return
