@@ -1,9 +1,9 @@
-from s3_data_packer.s3_data_packer import S3BigDataPacker
+from s3_data_packer.s3_data_packer import S3DataPacker
 import awswrangler as wr
 
 wr.s3.delete_objects("s3://alpha-everyone/s3_data_packer_test/packed")
 
-packer = S3BigDataPacker(
+packer = S3DataPacker(
     "s3://alpha-everyone/s3_data_packer_test/land",
     "s3://alpha-everyone/s3_data_packer_test/packed",
     "big",
@@ -11,7 +11,7 @@ packer = S3BigDataPacker(
 )
 packer.pack_data()
 
-packer2 = S3BigDataPacker(
+packer2 = S3DataPacker(
     "s3://alpha-everyone/s3_data_packer_test/land2",
     "s3://alpha-everyone/s3_data_packer_test/packed",
     "big",
@@ -19,7 +19,7 @@ packer2 = S3BigDataPacker(
 )
 packer2.pack_data()
 
-packer_csv = S3BigDataPacker(
+packer_csv = S3DataPacker(
     "s3://alpha-everyone/s3_data_packer_test/land",
     "s3://alpha-everyone/s3_data_packer_test/packed_csv",
     "big",
@@ -28,7 +28,7 @@ packer_csv = S3BigDataPacker(
 )
 packer_csv.pack_data()
 
-packer_csv2 = S3BigDataPacker(
+packer_csv2 = S3DataPacker(
     "s3://alpha-everyone/s3_data_packer_test/land2",
     "s3://alpha-everyone/s3_data_packer_test/packed_csv",
     "big",
@@ -37,7 +37,7 @@ packer_csv2 = S3BigDataPacker(
 )
 packer_csv2.pack_data()
 
-packer_json = S3BigDataPacker(
+packer_json = S3DataPacker(
     "s3://alpha-everyone/s3_data_packer_test/land",
     "s3://alpha-everyone/s3_data_packer_test/packed_json",
     "big",
@@ -46,7 +46,7 @@ packer_json = S3BigDataPacker(
 )
 packer_json.pack_data()
 
-packer_json2 = S3BigDataPacker(
+packer_json2 = S3DataPacker(
     "s3://alpha-everyone/s3_data_packer_test/land2",
     "s3://alpha-everyone/s3_data_packer_test/packed_json",
     "big",
