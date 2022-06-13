@@ -81,6 +81,8 @@ class S3DataPacker:
         if self.metadata is not None:
             self.metadata.set_col_type_category_from_types()
 
+        self.read_chunksize = read_chunksize
+
     def _get_meta(self, ext: str = None) -> Union[Metadata, None]:
         meta = (
             self.metadata
@@ -156,7 +158,7 @@ class S3DataPacker:
         return df
 
     def pack_data(self):
-        if read_chunksize is not None:
+        if self.read_chunksize is not None:
             self._pack_chunked_data()
         # any data to even add?
         if not self.input_store.get_files_from_table_log():
