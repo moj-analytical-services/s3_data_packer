@@ -10,9 +10,7 @@ from arrow_pd_parser.caster import cast_pandas_table_to_schema
 from arrow_pd_parser.utils import infer_file_format
 from mojap_metadata.metadata.metadata import Metadata
 from pandas import DataFrame, concat
-from s3_data_packer.constants import (
-    default_file_limit_gigabytes
-)
+from s3_data_packer.constants import default_file_limit_gigabytes
 from s3_data_packer.helpers import get_file_format
 from s3_data_packer.s3_output_store import S3OutputStore
 from s3_data_packer.s3_table_store import S3TableStore
@@ -33,7 +31,7 @@ class S3DataPacker:
         output_partition: dict = None,
         input_partition_name: str = None,
         file_limit_gigabytes: int = default_file_limit_gigabytes,
-        read_chunksize: Union[int, str] = None
+        read_chunksize: Union[int, str] = None,
     ):
 
         # set the blank table_name property. Has to be the _ one as it depends on itself
@@ -181,15 +179,17 @@ class S3DataPacker:
     def _read_chunked_file(self, fp: str, ext: str = None) -> Iterable[DataFrame]:
         file_format = self.input_store.table_extension if ext is None else ext
         meta = self._get_meta(ext)
-        
-        for df in reader.read(fp, file_format=file_format, chunksize=self.read_chunksize):
+
+        for df in reader.read(
+            fp, file_format=file_format, chunksize=self.read_chunksize
+        ):
             df = (
                 cast_pandas_table_to_schema(df, meta, ignore_columns=meta.partitions)
                 if meta
                 else df
             )
             yield df
-    
+
     def _get_dataframes(self) -> Iterable[DataFrame]:
         # get a list of input files as chunked Dataframes
         yield from self._read_chunked_file(
@@ -254,4 +254,3 @@ class S3DataPacker:
     @cast_parquet.setter
     def cast_parquet(self, new_cast_parquet: bool):
         self._cast_parquet = new_cast_parquet
-        
