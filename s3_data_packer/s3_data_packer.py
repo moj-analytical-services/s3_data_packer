@@ -157,11 +157,12 @@ class S3DataPacker:
         return df
 
     def pack_data(self):
-        if self.read_chunksize is not None:
-            return self._pack_chunked_data()
         # any data to even add?
         if not self.input_store.get_files_from_table_log():
             return
+        # Will the data be read in chunks?
+        if self.read_chunksize is not None:
+            return self._pack_chunked_data()
         # collate all the data from s3
         total_df = self._append_files()
         # get the size on disk
