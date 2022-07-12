@@ -165,16 +165,19 @@ class S3DataPacker:
             return self._pack_chunked_data()
         # collate all the data from s3
         total_df = self._append_files()
+        self._write_df(total_df)
+
+    def _write_df(self, df):
         # get the size on disk
-        self._set_file_size_on_disk(total_df)
+        self._set_file_size_on_disk(df)
         # get the indexes to write to
         start_vals, end_vals = self._get_chunk_increments()
         for i in range(len(start_vals)):
             # break up the df
-            df = total_df[start_vals[i] : end_vals[i]]
+            df_part = df[start_vals[i] : end_vals[i]]
             out_path = self.output_store._get_filename(full_path=True)
             # output the pandas df
-            writer.write(df, out_path, metadata=self.metadata)
+            writer.write(df_part, out_path, metadata=self.metadata)
             # increment the filenumber
             self.output_store.filenum += 1
 
@@ -205,18 +208,7 @@ class S3DataPacker:
                 df = concat([existing_df, df])
             else:
                 self.output_store.filenum += 1
-            # get the size on disk
-            self._set_file_size_on_disk(df)
-            # get the indices to write to
-            start_vals, end_vals = self._get_chunk_increments()
-            for i in range(len(start_vals)):
-                # break up the df
-                df_chunk = df[start_vals[i] : end_vals[i]]
-                out_path = self.output_store._get_filename(full_path=True)
-                # output the pandas df
-                writer.write(df_chunk, out_path, metadata=self.metadata)
-                # increment the filenumber
-                self.output_store.filenum += 1
+            self._write_df(df)
             # Reset the output store for the next chunked dataframe
             self.output_store._reset()
 
