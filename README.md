@@ -11,7 +11,7 @@ When basepath or table_name are created. When either `basepath` or `table_name` 
 updated, the table log is also updated
 
 [S3OutputStore](#S3OutputStore):
-used for determining a regular fomratting output files in the either format:
+used for determining a regular formatting output files in the either format:
 - `s3://basepath/table_name/table_name_0.extension`
 - `s3://basepath/table_name/table_name_suffix_0.extension`
 it also has a number of useful methods around determining what is the latest file and 
@@ -299,6 +299,9 @@ data will be written to this partition (appened or otherwise)
 - `input_partition_name`: str (optional) = None, passed to `S3TableStore` as
 `partition_name`. Has no real effect in this instance, but is used to populate
 `S3DataPacker.input_store.partition_values` if reading in from a partitioned source
+- `read_chunksize`: int or str (optional) = None. If not None this is used by 
+`arrow_pd_parser.reader` to read data in chunks, which is useful when the data is
+too large to fit into memory.
 
 not set from initialisation arguments
 - `input_store`: S3TableStore, initilaised with `input_basepath`, `table_name`, and 
