@@ -81,7 +81,7 @@ def test_get_meta(
                 ]
             },
             {"tests/data/all_types.csv": ["db/all_types/all_types_0.snappy.parquet"]},
-            6 * 10 ** -6,
+            6 * 10**-6,
             data_maker(20),
         ),
     ],
@@ -130,7 +130,7 @@ def test_set_file_size_on_disk(tmp_path, data_size, data_format, metadata):
     # write to disk and get size from os.path.getsize
     with tempfile.NamedTemporaryFile(suffix=f".{data_format}") as f:
         writer.write(df, f.name)
-        expected_file_size = round(os.path.getsize(f.name) * 10 ** -9, 9)
+        expected_file_size = round(os.path.getsize(f.name) * 10**-9, 9)
     # get the file size on disk according to s3_data_packer
     pp._set_file_size_on_disk(df)
     # asssert!
@@ -140,7 +140,7 @@ def test_set_file_size_on_disk(tmp_path, data_size, data_format, metadata):
 @pytest.mark.parametrize(
     "file_limit_gigabytes, df, expected_chunk_increments",
     [  # input scenario 1: large (ish) input file, small file size limit
-        (5 * 10 ** -6, data_maker(120), ([0, 82], [82, 120])),
+        (5 * 10**-6, data_maker(120), ([0, 82], [82, 120])),
         # input scenario 2: large file, large file limit
         (1, data_maker(120), ([0], [120])),
         # input scenario 3: one line file
@@ -202,11 +202,18 @@ def test_get_chunk_increments(
         ),
     ],
 )
-@pytest.mark.parametrize("file_limit_gigabytes", [1, 6 * 10 ** -6])
+@pytest.mark.parametrize("file_limit_gigabytes", [1, 6 * 10**-6])
 # jsonl isn't done because pandas makes boolean jsonl values ints and it's a pain
 @pytest.mark.parametrize("ff", ["csv", "parquet", "snappy.parquet"])
+@pytest.mark.parametrize("chunksize", [5, 5000, None])
 def test_packed_data(
-    tmp_path, input_filemap, output_filemap, total_lines, file_limit_gigabytes, ff
+    tmp_path,
+    input_filemap,
+    output_filemap,
+    total_lines,
+    file_limit_gigabytes,
+    ff,
+    chunksize,
 ):
     """
     tests that the data in is the same as all the data out, regardless of split.
@@ -226,6 +233,7 @@ def test_packed_data(
         output_filemap,
         file_limit_gigabytes=file_limit_gigabytes,
         output_file_ext=ff,
+        read_chunksize=chunksize,
     )
     pp.pack_data()
     output_basepath = os.path.join(tmp_path, "db/all_types/")

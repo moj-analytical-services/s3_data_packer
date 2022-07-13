@@ -196,10 +196,9 @@ class S3DataPacker:
             yield df
 
     def _get_dataframes(self) -> Iterable[DataFrame]:
-        # get a list of input files as chunked Dataframes
-        yield from self._read_chunked_file(
-            self.input_store._get_table_basepath(), self.input_store.table_extension
-        )
+        # from a list of input files get chunked Dataframes
+        for f in self.input_store.get_files_from_table_log(full_path=True):
+            yield from self._read_chunked_file(f)
 
     def _pack_chunked_data(self):
         for df in self._get_dataframes():
