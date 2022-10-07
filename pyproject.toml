@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "s3_data_packer"
-version = "0.0.5"
+version = "0.0.6"
 description = ""
 authors = [
     "s-ducks <stephen.bias@digital.justice.gov.uk>",
