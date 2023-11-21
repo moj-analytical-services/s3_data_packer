@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "s3_data_packer"
-version = "0.0.9"
+version = "0.0.10"
 description = ""
 authors = [
     "s-ducks <stephen.bias@digital.justice.gov.uk>",
@@ -19,7 +19,7 @@ numpy = "^1.22"
 
 [tool.poetry.dev-dependencies]
 moto = "^2.2.6"
-pytest = "^6.2.5"
+pytest = ">=7.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
